@@ -135,6 +135,9 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
 .entry-skills { font-size:.72rem; color:#666; font-style:italic; }
 .delete-btn { background:none; border:none; color:#444; font-size:1.1rem; cursor:pointer; padding:4px 8px; flex-shrink:0; }
 .delete-btn:hover { color:#e94560; }
+.edit-btn { background:none; border:none; color:#555; font-size:.95rem; cursor:pointer; padding:4px 6px; flex-shrink:0; }
+.edit-btn:hover { color:#3a86ff; }
+.entry-actions { display:flex; flex-direction:column; align-items:center; gap:2px; }
 
 .empty-state { text-align:center; padding:30px; color:#555; font-size:.9rem; }
 .empty-state .icon { font-size:2.5rem; margin-bottom:8px; }
@@ -352,6 +355,36 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('manualModal')">Cancel</button>
       <button class="btn-save" onclick="saveManual()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Entry Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h2>✏️ Edit Drive Entry</h2>
+    <input type="hidden" id="eId">
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" id="eDate">
+    </div>
+    <div class="row2">
+      <div class="form-group">
+        <label>Start Time</label>
+        <input type="time" id="eStart">
+      </div>
+      <div class="form-group">
+        <label>End Time</label>
+        <input type="time" id="eEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Skills Practiced</label>
+      <textarea id="eSkills" placeholder="e.g. parking, highway, turns..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn-save" onclick="saveEdit()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -663,6 +696,45 @@ function deleteEntry(id) {
   render();
 }
 
+// ── EDIT ENTRY ──
+function openEditModal(id) {
+  const e = entries.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('eId').value = id;
+  document.getElementById('eDate').value = e.date;
+  document.getElementById('eStart').value = e.startStr;
+  document.getElementById('eEnd').value = e.endStr;
+  document.getElementById('eSkills').value = e.skills || '';
+  openModal('editModal');
+}
+
+function saveEdit() {
+  const id = parseInt(document.getElementById('eId').value);
+  const dateVal = document.getElementById('eDate').value;
+  const startVal = document.getElementById('eStart').value;
+  const endVal = document.getElementById('eEnd').value;
+  const skills = document.getElementById('eSkills').value.trim();
+
+  if (!dateVal || !startVal || !endVal) { alert('Please fill in date, start time, and end time.'); return; }
+
+  const [sy, sm, sd] = dateVal.split('-').map(Number);
+  const [sh, smin] = startVal.split(':').map(Number);
+  const [eh, emin] = endVal.split(':').map(Number);
+
+  const startMs = new Date(sy, sm-1, sd, sh, smin).getTime();
+  let endMs = new Date(sy, sm-1, sd, eh, emin).getTime();
+  if (endMs <= startMs) endMs += 86400000;
+
+  const { dayMins, nightMins } = calcDayNight(startMs, endMs);
+
+  const idx = entries.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  entries[idx] = { ...entries[idx], date: dateVal, startStr: startVal, endStr: endVal, dayMins, nightMins, skills };
+  saveEntries();
+  closeModal('editModal');
+  render();
+}
+
 // ── EXPORT ──
 function openExportModal() {
   const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
@@ -838,7 +910,10 @@ function render() {
         </div>
         ${e.skills ? `<div class="entry-skills">${esc(e.skills)}</div>` : ''}
       </div>
-      <button class="delete-btn" onclick="deleteEntry(${e.id})">✕</button>
+      <div class="entry-actions">
+        <button class="edit-btn" onclick="openEditModal(${e.id})" title="Edit">✏️</button>
+        <button class="delete-btn" onclick="deleteEntry(${e.id})" title="Delete">✕</button>
+      </div>
     </div>`;
   }).join('');
 }
