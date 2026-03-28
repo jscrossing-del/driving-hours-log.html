@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Driving Hours Log</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+  padding: 16px 16px 100px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bottom:4px; }
+.subtitle { text-align:center; font-size:.82rem; color:#888; margin-bottom:18px; }
+
+/* Stop Alert Banner */
+#stopAlert {
+  display:none;
+  background: linear-gradient(135deg,#e94560,#c0392b);
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:14px;
+  animation: pulse 1.5s infinite;
+}
+#stopAlert.show { display:flex; align-items:center; gap:12px; }
+#stopAlert .alert-text { flex:1; font-size:.9rem; font-weight:600; }
+#stopAlert .alert-text small { display:block; font-size:.75rem; font-weight:400; opacity:.85; }
+#stopAlert button { background:rgba(255,255,255,.2); border:2px solid rgba(255,255,255,.5); color:#fff; border-radius:10px; padding:8px 14px; font-weight:700; font-size:.85rem; cursor:pointer; white-space:nowrap; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(233,69,96,.5)} 50%{box-shadow:0 0 0 10px rgba(233,69,96,0)} }
+
+/* Name + Email bar */
+.info-bar {
+  background:#16213e; border-radius:12px; padding:12px 16px;
+  margin-bottom:12px; border:2px solid #0f3460;
+}
+.info-field { display:flex; align-items:center; gap:10px; }
+.info-field + .info-field { margin-top:10px; padding-top:10px; border-top:1px solid #0f3460; }
+.info-field label { font-size:.72rem; color:#888; text-transform:uppercase; letter-spacing:1px; width:62px; flex-shrink:0; }
+.info-field input { flex:1; background:none; border:none; color:#fff; font-size:.95rem; font-weight:600; outline:none; }
+.info-field input::placeholder { color:#444; font-weight:400; }
+
+/* Goal toggle */
+.goal-toggle { display:flex; gap:8px; margin-bottom:14px; }
+.goal-opt {
+  flex:1; padding:10px; border-radius:10px; border:2px solid #0f3460;
+  background:#16213e; color:#888; font-size:.75rem; font-weight:600;
+  text-align:center; cursor:pointer; transition:all .2s;
+}
+.goal-opt.active { border-color:#e94560; background:rgba(233,69,96,.1); color:#e94560; }
+.goal-opt .hrs { font-size:1.1rem; font-weight:800; display:block; }
+
+/* Progress Cards */
+.progress-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
+.progress-card { background:#16213e; border-radius:14px; padding:12px 8px; text-align:center; border:2px solid #0f3460; }
+.progress-card .label { font-size:.65rem; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:4px; }
+.progress-card .value { font-size:1.5rem; font-weight:800; color:#e94560; }
+.progress-card.night .value { color:#7d55c7; }
+.progress-card.total .value { color:#0f9b8e; }
+.progress-card .unit { font-size:.65rem; color:#666; margin-top:2px; }
+
+/* Progress Bars */
+.goal-section { background:#16213e; border-radius:14px; padding:14px; margin-bottom:16px; border:2px solid #0f3460; }
+.goal-title { font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:10px; }
+.goal-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.goal-row:last-child { margin-bottom:0; }
+.goal-label { font-size:.75rem; color:#ccc; width:96px; flex-shrink:0; }
+.bar-wrap { flex:1; background:#0f3460; border-radius:20px; height:16px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:20px; transition:width .5s ease; min-width:4px; }
+.bar-fill.total-bar { background:linear-gradient(90deg,#e94560,#ff6b6b); }
+.bar-fill.night-bar { background:linear-gradient(90deg,#533483,#9b59b6); }
+.goal-pct { font-size:.72rem; color:#888; width:32px; text-align:right; flex-shrink:0; }
+
+/* Active Drive Card */
+#activeDriveCard {
+  display:none;
+  background:linear-gradient(135deg,#0d3b1e,#1a4d2a);
+  border:2px solid #27ae60;
+  border-radius:16px;
+  padding:18px;
+  margin-bottom:16px;
+}
+#activeDriveCard.show { display:block; }
+.active-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.active-dot { width:12px; height:12px; background:#27ae60; border-radius:50%; animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.active-label { font-size:.8rem; color:#2ecc71; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+.active-since { font-size:.75rem; color:#888; }
+.timer-display { font-size:3rem; font-weight:800; color:#2ecc71; text-align:center; letter-spacing:2px; margin:8px 0; font-variant-numeric:tabular-nums; }
+.active-info { display:flex; justify-content:space-between; font-size:.75rem; color:#aaa; margin-top:8px; }
+.geo-status { font-size:.72rem; color:#888; text-align:center; margin-top:6px; }
+
+/* Main Action Buttons */
+.action-row { display:flex; gap:12px; margin-bottom:16px; }
+#startBtn {
+  flex:1; padding:20px 16px; background:linear-gradient(135deg,#27ae60,#1e8449);
+  color:#fff; font-size:1.3rem; font-weight:800; border:none; border-radius:16px;
+  cursor:pointer; box-shadow:0 4px 20px rgba(39,174,96,.4); transition:transform .1s;
+  letter-spacing:.5px;
+}
+#startBtn:active { transform:scale(.97); }
+#endBtn {
+  flex:1; padding:20px 16px; background:linear-gradient(135deg,#e94560,#c0392b);
+  color:#fff; font-size:1.3rem; font-weight:800; border:none; border-radius:16px;
+  cursor:pointer; box-shadow:0 4px 20px rgba(233,69,96,.4); transition:transform .1s;
+  letter-spacing:.5px; display:none;
+}
+#endBtn:active { transform:scale(.97); }
+#endBtn.show { display:block; }
+.manual-btn {
+  width:100%; padding:14px; background:#16213e; border:2px dashed #0f3460;
+  color:#888; font-size:.95rem; font-weight:600; border-radius:14px;
+  cursor:pointer; margin-bottom:16px; transition:all .2s;
+}
+.manual-btn:hover { border-color:#888; color:#ccc; }
+
+/* Log section */
+.log-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.log-title { font-size:.75rem; text-transform:uppercase; letter-spacing:1px; color:#888; }
+.entry-count { background:#e94560; color:#fff; font-size:.68rem; font-weight:700; border-radius:20px; padding:2px 10px; }
+
+.log-entry {
+  background:#16213e; border-radius:12px; padding:14px; margin-bottom:10px;
+  border:2px solid #0f3460; display:flex; align-items:center; gap:12px;
+}
+.entry-date { background:#e94560; border-radius:8px; padding:8px 10px; text-align:center; flex-shrink:0; min-width:50px; }
+.entry-date.manual-entry { background:#533483; }
+.entry-date .month { font-size:.58rem; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.8); }
+.entry-date .day-num { font-size:1.3rem; font-weight:800; color:#fff; line-height:1; }
+.entry-info { flex:1; }
+.entry-time { font-size:.72rem; color:#888; margin-bottom:4px; }
+.entry-mins { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+.min-badge { font-size:.72rem; font-weight:700; padding:2px 8px; border-radius:6px; }
+.min-badge.day { background:rgba(233,69,96,.2); color:#e94560; }
+.min-badge.night { background:rgba(83,52,131,.3); color:#9b59b6; }
+.min-badge.tot { background:rgba(15,155,142,.2); color:#0f9b8e; }
+.entry-skills { font-size:.72rem; color:#666; font-style:italic; }
+.delete-btn { background:none; border:none; color:#444; font-size:1.1rem; cursor:pointer; padding:4px 8px; flex-shrink:0; }
+.delete-btn:hover { color:#e94560; }
+
+.empty-state { text-align:center; padding:30px; color:#555; font-size:.9rem; }
+.empty-state .icon { font-size:2.5rem; margin-bottom:8px; }
+
+/* Export Section */
+.export-section { margin-top:20px; }
+.export-btn {
+  width:100%; padding:16px; background:linear-gradient(135deg,#0f9b8e,#0a7a6e);
+  color:#fff; font-size:1rem; font-weight:700; border:none; border-radius:14px;
+  cursor:pointer; box-shadow:0 4px 16px rgba(15,155,142,.35); margin-bottom:8px;
+}
+.export-hint { font-size:.72rem; color:#666; text-align:center; }
+
+/* Modals */
+.modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.8);
+  z-index:200; align-items:flex-end; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background:#16213e; border-radius:20px 20px 0 0; padding:24px 20px 40px;
+  width:100%; max-width:500px; border-top:3px solid #e94560;
+  max-height:90vh; overflow-y:auto;
+}
+.modal.green-top { border-top-color:#27ae60; }
+.modal.teal-top { border-top-color:#0f9b8e; }
+.modal h2 { font-size:1.15rem; font-weight:700; margin-bottom:18px; color:#fff; }
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:6px; }
+.form-group input, .form-group textarea, .form-group select {
+  width:100%; background:#0f3460; border:2px solid #1a4a7a; border-radius:10px;
+  padding:12px 14px; color:#fff; font-size:.95rem; outline:none; transition:border-color .2s;
+}
+.form-group input:focus, .form-group textarea:focus { border-color:#e94560; }
+.form-group textarea { resize:none; height:65px; }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.quick-btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.qb { background:#0f3460; border:2px solid #1a4a7a; color:#ccc; border-radius:8px; padding:5px 10px; font-size:.78rem; cursor:pointer; }
+.qb:hover, .qb:active { background:#e94560; color:#fff; border-color:#e94560; }
+.modal-actions { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+.btn-cancel { padding:14px; background:#0f3460; border:none; border-radius:12px; color:#aaa; font-size:.95rem; font-weight:600; cursor:pointer; }
+.btn-save { padding:14px; background:linear-gradient(135deg,#e94560,#c0392b); border:none; border-radius:12px; color:#fff; font-size:.95rem; font-weight:700; cursor:pointer; }
+.btn-save.green { background:linear-gradient(135deg,#27ae60,#1e8449); }
+.btn-save.teal { background:linear-gradient(135deg,#0f9b8e,#0a7a6e); }
+
+/* Time adjust info */
+.time-display {
+  background:#0a1628; border-radius:10px; padding:14px; text-align:center;
+  margin-bottom:14px; border:2px solid #0f3460;
+}
+.time-display .td-label { font-size:.7rem; color:#888; text-transform:uppercase; letter-spacing:1px; }
+.time-display .td-val { font-size:2rem; font-weight:800; color:#2ecc71; margin:4px 0; }
+.time-display .td-sub { font-size:.75rem; color:#888; }
+
+/* Export modal specific */
+.export-summary { background:#0a1628; border-radius:12px; padding:14px; margin-bottom:16px; }
+.exp-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #0f3460; font-size:.85rem; }
+.exp-row:last-child { border-bottom:none; }
+.exp-row .exp-val { font-weight:700; color:#0f9b8e; }
+.reminder-box {
+  background:rgba(233,69,96,.1); border:2px solid rgba(233,69,96,.3);
+  border-radius:12px; padding:14px; margin:16px 0; font-size:.82rem; line-height:1.6;
+  color:#ffb3b3;
+}
+.reminder-box strong { color:#e94560; display:block; margin-bottom:4px; }
+</style>
+</head>
+<body>
+
+<h1>🚗 Driving Hours Log</h1>
+<p class="subtitle">Minnesota Supervised Driving — Under 18</p>
+
+<!-- Stop Alert -->
+<div id="stopAlert">
+  <div class="alert-text">
+    ⚠️ Looks like you stopped!
+    <small>Car hasn't moved in 5+ minutes — forget to end your drive?</small>
+  </div>
+  <button onclick="dismissStopAlert()">End Drive</button>
+</div>
+
+<!-- Student Info -->
+<div class="info-bar">
+  <div class="info-field">
+    <label>Student</label>
+    <input type="text" id="studentName" placeholder="Your name" oninput="save('name')">
+  </div>
+  <div class="info-field">
+    <label>Email</label>
+    <input type="email" id="emailAddr" placeholder="your@email.com" oninput="save('email')">
+  </div>
+</div>
+
+<!-- Goal Toggle -->
+<div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px;">Goal Type</div>
+<div class="goal-toggle">
+  <div class="goal-opt active" id="goal40" onclick="setGoal(40)">
+    <span class="hrs">40 hrs</span>With Parent Class
+  </div>
+  <div class="goal-opt" id="goal50" onclick="setGoal(50)">
+    <span class="hrs">50 hrs</span>No Parent Class
+  </div>
+</div>
+
+<!-- Progress Cards -->
+<div class="progress-grid">
+  <div class="progress-card">
+    <div class="label">☀️ Day</div>
+    <div class="value" id="totalDay">0</div>
+    <div class="unit">minutes</div>
+  </div>
+  <div class="progress-card night">
+    <div class="label">🌙 Night</div>
+    <div class="value" id="totalNight">0</div>
+    <div class="unit">minutes</div>
+  </div>
+  <div class="progress-card total">
+    <div class="label">Total</div>
+    <div class="value" id="totalAll">0</div>
+    <div class="unit">minutes</div>
+  </div>
+</div>
+
+<!-- Progress Bars -->
+<div class="goal-section">
+  <div class="goal-title">Progress to Goal</div>
+  <div class="goal-row">
+    <div class="goal-label" id="goalLabel">Total (40 hrs)</div>
+    <div class="bar-wrap"><div class="bar-fill total-bar" id="barTotal" style="width:0%"></div></div>
+    <div class="goal-pct" id="pctTotal">0%</div>
+  </div>
+  <div class="goal-row">
+    <div class="goal-label">Night (15 hrs)</div>
+    <div class="bar-wrap"><div class="bar-fill night-bar" id="barNight" style="width:0%"></div></div>
+    <div class="goal-pct" id="pctNight">0%</div>
+  </div>
+</div>
+
+<!-- Active Drive Card -->
+<div id="activeDriveCard">
+  <div class="active-header">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="active-dot"></div>
+      <span class="active-label">Drive In Progress</span>
+    </div>
+    <span class="active-since" id="activeSince"></span>
+  </div>
+  <div class="timer-display" id="timerDisplay">0:00:00</div>
+  <div class="active-info">
+    <span id="dayNightStatus">Calculating day/night...</span>
+    <span id="currentDayNight"></span>
+  </div>
+  <div class="geo-status" id="geoStatus">📍 Getting location...</div>
+</div>
+
+<!-- Action Buttons -->
+<div class="action-row">
+  <button id="startBtn" onclick="startDrive()">▶ Start Drive</button>
+  <button id="endBtn" onclick="openEndModal()">■ End Drive</button>
+</div>
+<button class="manual-btn" onclick="openManualModal()">+ Add Hours Manually (forgot to use app)</button>
+
+<!-- Log List -->
+<div class="log-header">
+  <div class="log-title">Drive History</div>
+  <div class="entry-count" id="entryCount">0 drives</div>
+</div>
+<div id="logList"></div>
+
+<!-- Export -->
+<div class="export-section">
+  <button class="export-btn" onclick="openExportModal()">📄 Done — Export & Email Log</button>
+  <div class="export-hint">Generates your log to email &amp; print before your test</div>
+</div>
+
+<!-- ── MODALS ── -->
+
+<!-- End Drive Modal -->
+<div class="modal-overlay" id="endModal">
+  <div class="modal green-top">
+    <h2>End Drive</h2>
+    <div class="time-display">
+      <div class="td-label">End Time</div>
+      <div class="td-val" id="endTimeDisplay">—</div>
+      <div class="td-sub">Adjust below if you forgot to stop</div>
+    </div>
+    <div class="form-group">
+      <label>Adjust End Time (if needed)</label>
+      <input type="time" id="endTimeInput">
+    </div>
+    <div class="form-group">
+      <label>Skills Practiced</label>
+      <textarea id="endSkills" placeholder="e.g. highway, parking, turns, night driving..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('endModal')">Cancel</button>
+      <button class="btn-save green" onclick="saveDrive()">Save Drive</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manual Entry Modal -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal">
+    <h2>Add Hours Manually</h2>
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" id="mDate">
+    </div>
+    <div class="row2">
+      <div class="form-group">
+        <label>Start Time</label>
+        <input type="time" id="mStart">
+      </div>
+      <div class="form-group">
+        <label>End Time</label>
+        <input type="time" id="mEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Skills Practiced</label>
+      <textarea id="mSkills" placeholder="e.g. parking, highway, turns..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('manualModal')">Cancel</button>
+      <button class="btn-save" onclick="saveManual()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal teal-top">
+    <h2>📄 Export Driving Log</h2>
+    <div class="export-summary" id="exportSummary"></div>
+    <div class="reminder-box">
+      <strong>⚠️ Before Your Test — Remember!</strong>
+      Print this log and bring it with you. The DMV requires your signed supervised driving log to get your provisional license.
+    </div>
+    <div class="form-group">
+      <label>Your Email (to send to yourself)</label>
+      <input type="email" id="exportEmail" placeholder="your@email.com">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('exportModal')">Close</button>
+      <button class="btn-save teal" onclick="exportLog()">📧 Email &amp; Print</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let entries = [];
+let activeDrive = null; // { startTime: Date, startStr: string }
+let goalHours = 40;
+let timerInterval = null;
+let geoWatcher = null;
+let userLat = 44.98; // Minneapolis default
+let userLng = -93.27;
+let lastMoveTime = null;
+let stopAlertTimer = null;
+let stopAlertShown = false;
+
+const NIGHT_GOAL = 900; // 15 hrs in minutes
+
+// ── INIT ──
+function init() {
+  const saved = localStorage.getItem('dlEntries');
+  if (saved) entries = JSON.parse(saved);
+  const sn = localStorage.getItem('dlName'); if (sn) document.getElementById('studentName').value = sn;
+  const em = localStorage.getItem('dlEmail'); if (em) document.getElementById('emailAddr').value = em;
+  const sg = localStorage.getItem('dlGoal'); if (sg) setGoal(parseInt(sg), true);
+  const ad = localStorage.getItem('dlActive');
+  if (ad) {
+    activeDrive = JSON.parse(ad);
+    activeDrive.startTime = new Date(activeDrive.startTime);
+    showActiveDrive();
+  }
+  // Get location
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(p => {
+      userLat = p.coords.latitude;
+      userLng = p.coords.longitude;
+    }, null, { timeout: 10000 });
+  }
+  render();
+}
+
+function save(type) {
+  if (type === 'name') localStorage.setItem('dlName', document.getElementById('studentName').value);
+  if (type === 'email') localStorage.setItem('dlEmail', document.getElementById('emailAddr').value);
+}
+function saveEntries() { localStorage.setItem('dlEntries', JSON.stringify(entries)); }
+
+// ── GOAL ──
+function setGoal(hrs, silent) {
+  goalHours = hrs;
+  if (!silent) localStorage.setItem('dlGoal', hrs);
+  document.getElementById('goal40').classList.toggle('active', hrs === 40);
+  document.getElementById('goal50').classList.toggle('active', hrs === 50);
+  document.getElementById('goalLabel').textContent = `Total (${hrs} hrs)`;
+  render();
+}
+
+// ── SUNRISE/SUNSET ──
+function getSunTimes(date) {
+  const rad = Math.PI / 180;
+  const dayOfYear = Math.floor((date - new Date(date.getFullYear(),0,0)) / 86400000);
+  const B = (360/365) * (dayOfYear - 81) * rad;
+  const decl = 23.45 * Math.sin(B) * rad;
+  const cosHA = -Math.tan(userLat * rad) * Math.tan(decl);
+  if (cosHA > 1 || cosHA < -1) return { sunriseMin: 360, sunsetMin: 1200 };
+  const HA = Math.acos(cosHA) / rad;
+  const E = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  const solarNoon = 720 - 4 * userLng - E;
+  const tzOffset = -date.getTimezoneOffset();
+  return {
+    sunriseMin: Math.round(solarNoon - 4 * HA + tzOffset),
+    sunsetMin:  Math.round(solarNoon + 4 * HA + tzOffset)
+  };
+}
+
+function calcDayNight(startMs, endMs) {
+  // Returns { dayMins, nightMins }
+  const startDate = new Date(startMs);
+  const { sunriseMin, sunsetMin } = getSunTimes(startDate);
+  let dayMins = 0, nightMins = 0;
+  const durationMin = Math.round((endMs - startMs) / 60000);
+  const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
+  const startMinOfDay = Math.round((startMs - startMidnight) / 60000);
+
+  for (let i = 0; i < durationMin; i++) {
+    const m = (startMinOfDay + i) % 1440;
+    if (m >= sunriseMin && m < sunsetMin) dayMins++;
+    else nightMins++;
+  }
+  return { dayMins, nightMins };
+}
+
+function isNightNow() {
+  const now = new Date();
+  const { sunriseMin, sunsetMin } = getSunTimes(now);
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const minNow = Math.round((now.getTime() - midnight) / 60000);
+  return minNow < sunriseMin || minNow >= sunsetMin;
+}
+
+// ── START DRIVE ──
+function startDrive() {
+  activeDrive = { startTime: new Date(), startStr: fmtTime(new Date()) };
+  localStorage.setItem('dlActive', JSON.stringify(activeDrive));
+  stopAlertShown = false;
+  startGeoWatch();
+  showActiveDrive();
+}
+
+function showActiveDrive() {
+  document.getElementById('activeDriveCard').classList.add('show');
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('endBtn').classList.add('show');
+  document.getElementById('activeSince').textContent = 'Started ' + activeDrive.startStr;
+  startTimer();
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimer, 1000);
+  updateTimer();
+}
+
+function updateTimer() {
+  if (!activeDrive) return;
+  const elapsed = Date.now() - new Date(activeDrive.startTime).getTime();
+  const h = Math.floor(elapsed / 3600000);
+  const m = Math.floor((elapsed % 3600000) / 60000);
+  const s = Math.floor((elapsed % 60000) / 1000);
+  document.getElementById('timerDisplay').textContent =
+    h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+  const isNight = isNightNow();
+  document.getElementById('dayNightStatus').textContent = isNight ? '🌙 Night driving' : '☀️ Day driving';
+  document.getElementById('currentDayNight').textContent = fmtTime(new Date());
+}
+
+// ── GEOLOCATION WATCH (stop detection) ──
+function startGeoWatch() {
+  if (!navigator.geolocation) {
+    document.getElementById('geoStatus').textContent = '📍 Location unavailable — tap End when done';
+    return;
+  }
+  lastMoveTime = Date.now();
+  geoWatcher = navigator.geolocation.watchPosition(
+    pos => {
+      const speed = pos.coords.speed; // m/s, may be null
+      const moving = speed === null ? true : speed > 1.5; // ~3.4 mph
+      if (moving) {
+        lastMoveTime = Date.now();
+        stopAlertShown = false;
+        document.getElementById('stopAlert').classList.remove('show');
+        document.getElementById('geoStatus').textContent = '📍 Location tracking active';
+      }
+      // Check if stopped for 5 min
+      if (!stopAlertShown && Date.now() - lastMoveTime > 5 * 60 * 1000) {
+        showStopAlert();
+      }
+    },
+    err => {
+      document.getElementById('geoStatus').textContent = '📍 Location unavailable — tap End when done';
+    },
+    { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
+  );
+
+  // Fallback: check every 30s if no movement detected
+  stopAlertTimer = setInterval(() => {
+    if (activeDrive && lastMoveTime && !stopAlertShown && Date.now() - lastMoveTime > 5 * 60 * 1000) {
+      showStopAlert();
+    }
+  }, 30000);
+}
+
+function stopGeoWatch() {
+  if (geoWatcher !== null) { navigator.geolocation.clearWatch(geoWatcher); geoWatcher = null; }
+  if (stopAlertTimer) { clearInterval(stopAlertTimer); stopAlertTimer = null; }
+}
+
+function showStopAlert() {
+  if (!activeDrive) return;
+  stopAlertShown = true;
+  document.getElementById('stopAlert').classList.add('show');
+  // Change title to alert user
+  document.title = '⚠️ Drive ended? — Driving Hours Log';
+  // Try notification
+  if (window.Notification && Notification.permission === 'granted') {
+    new Notification('Drive ended?', { body: "Looks like you've stopped — tap to end your drive!", icon: '' });
+  }
+}
+
+function dismissStopAlert() {
+  document.getElementById('stopAlert').classList.remove('show');
+  openEndModal();
+}
+
+// ── END DRIVE ──
+function openEndModal() {
+  if (!activeDrive) return;
+  const now = new Date();
+  document.getElementById('endTimeDisplay').textContent = fmtTime(now);
+  document.getElementById('endTimeInput').value = now.toTimeString().slice(0,5);
+  document.getElementById('endSkills').value = '';
+  openModal('endModal');
+}
+
+function saveDrive() {
+  if (!activeDrive) return;
+  const startMs = new Date(activeDrive.startTime).getTime();
+
+  // Build end time from input
+  const endTimeVal = document.getElementById('endTimeInput').value; // "HH:MM"
+  const startDate = new Date(activeDrive.startTime);
+  let endMs;
+  if (endTimeVal) {
+    const [eh, em] = endTimeVal.split(':').map(Number);
+    const endDate = new Date(startDate);
+    endDate.setHours(eh, em, 0, 0);
+    if (endDate < startDate) endDate.setDate(endDate.getDate() + 1); // next day
+    endMs = endDate.getTime();
+  } else {
+    endMs = Date.now();
+  }
+
+  const { dayMins, nightMins } = calcDayNight(startMs, endMs);
+  const skills = document.getElementById('endSkills').value.trim();
+
+  entries.unshift({
+    id: Date.now(),
+    date: fmtDate(startDate),
+    startStr: activeDrive.startStr,
+    endStr: endTimeVal || fmtTime(new Date()),
+    dayMins, nightMins,
+    skills,
+    manual: false
+  });
+  saveEntries();
+
+  // Clear active
+  activeDrive = null;
+  localStorage.removeItem('dlActive');
+  clearInterval(timerInterval); timerInterval = null;
+  stopGeoWatch();
+  document.getElementById('activeDriveCard').classList.remove('show');
+  document.getElementById('startBtn').style.display = '';
+  document.getElementById('endBtn').classList.remove('show');
+  document.getElementById('stopAlert').classList.remove('show');
+  document.title = 'Driving Hours Log';
+
+  closeModal('endModal');
+  render();
+}
+
+// ── MANUAL ENTRY ──
+function openManualModal() {
+  document.getElementById('mDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mStart').value = '';
+  document.getElementById('mEnd').value = '';
+  document.getElementById('mSkills').value = '';
+  openModal('manualModal');
+}
+
+function saveManual() {
+  const dateVal = document.getElementById('mDate').value;
+  const startVal = document.getElementById('mStart').value;
+  const endVal = document.getElementById('mEnd').value;
+  const skills = document.getElementById('mSkills').value.trim();
+
+  if (!dateVal || !startVal || !endVal) { alert('Please fill in date, start time, and end time.'); return; }
+
+  const [sy, sm, sd] = dateVal.split('-').map(Number);
+  const [sh, smin] = startVal.split(':').map(Number);
+  const [eh, emin] = endVal.split(':').map(Number);
+
+  const startMs = new Date(sy, sm-1, sd, sh, smin).getTime();
+  let endMs   = new Date(sy, sm-1, sd, eh, emin).getTime();
+  if (endMs <= startMs) endMs += 86400000; // next day
+
+  const { dayMins, nightMins } = calcDayNight(startMs, endMs);
+
+  entries.unshift({
+    id: Date.now(),
+    date: dateVal,
+    startStr: startVal,
+    endStr: endVal,
+    dayMins, nightMins,
+    skills,
+    manual: true
+  });
+  saveEntries();
+  closeModal('manualModal');
+  render();
+}
+
+// ── DELETE ──
+function deleteEntry(id) {
+  if (!confirm('Delete this drive entry?')) return;
+  entries = entries.filter(e => e.id !== id);
+  saveEntries();
+  render();
+}
+
+// ── EXPORT ──
+function openExportModal() {
+  const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
+  const totalNight = entries.reduce((s,e) => s + e.nightMins, 0);
+  const totalAll = totalDay + totalNight;
+  const goalMins = goalHours * 60;
+  const needed = Math.max(0, goalMins - totalAll);
+  const nightNeeded = Math.max(0, NIGHT_GOAL - totalNight);
+
+  document.getElementById('exportSummary').innerHTML = `
+    <div class="exp-row"><span>Student</span><span class="exp-val">${esc(document.getElementById('studentName').value || 'Not entered')}</span></div>
+    <div class="exp-row"><span>Total Drives</span><span class="exp-val">${entries.length}</span></div>
+    <div class="exp-row"><span>Day Minutes</span><span class="exp-val">${totalDay} min (${(totalDay/60).toFixed(1)} hrs)</span></div>
+    <div class="exp-row"><span>Night Minutes</span><span class="exp-val">${totalNight} min (${(totalNight/60).toFixed(1)} hrs)</span></div>
+    <div class="exp-row"><span>Total Minutes</span><span class="exp-val">${totalAll} min (${(totalAll/60).toFixed(1)} hrs)</span></div>
+    ${needed > 0 ? `<div class="exp-row" style="color:#e94560"><span>Still need (total)</span><span>${needed} min (${(needed/60).toFixed(1)} hrs)</span></div>` : '<div class="exp-row" style="color:#27ae60"><span>Total goal</span><span>✅ Complete!</span></div>'}
+    ${nightNeeded > 0 ? `<div class="exp-row" style="color:#9b59b6"><span>Still need (night)</span><span>${nightNeeded} min (${(nightNeeded/60).toFixed(1)} hrs)</span></div>` : '<div class="exp-row" style="color:#27ae60"><span>Night goal (15 hrs)</span><span>✅ Complete!</span></div>'}
+  `;
+  const savedEmail = localStorage.getItem('dlEmail') || '';
+  document.getElementById('exportEmail').value = savedEmail;
+  openModal('exportModal');
+}
+
+function exportLog() {
+  const email = document.getElementById('exportEmail').value.trim();
+  const name = document.getElementById('studentName').value.trim() || 'Student';
+
+  // Build print page HTML
+  const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
+  const totalNight = entries.reduce((s,e) => s + e.nightMins, 0);
+  const totalAll = totalDay + totalNight;
+
+  let rows = entries.map(e => `
+    <tr>
+      <td>${e.date}</td>
+      <td>${e.startStr} – ${e.endStr}</td>
+      <td>${e.dayMins}</td>
+      <td>${e.nightMins}</td>
+      <td>${e.dayMins + e.nightMins}</td>
+      <td>${e.skills || ''}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Supervised Driving Log — ${esc(name)}</title>
+<style>
+  body{font-family:Arial,sans-serif;margin:30px;color:#000;}
+  h1{text-align:center;font-size:22px;margin-bottom:4px;}
+  .sub{text-align:center;font-size:12px;color:#666;margin-bottom:20px;}
+  .info{margin-bottom:16px;font-size:13px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{background:#1a1a2e;color:#fff;padding:8px 6px;text-align:left;}
+  td{padding:7px 6px;border-bottom:1px solid #ddd;}
+  tr:nth-child(even) td{background:#f9f9f9;}
+  .totals{margin-top:16px;font-size:13px;font-weight:bold;}
+  .totals td{padding:5px 6px;border:none;}
+  .req{margin-top:20px;font-size:11px;background:#fff8cc;border:1px solid #e6c800;padding:10px;border-radius:4px;}
+  .sig{margin-top:30px;border-top:1px solid #000;padding-top:16px;font-size:13px;}
+  .sig-line{display:inline-block;border-bottom:1px solid #000;width:300px;margin:0 10px;}
+  @media print{body{margin:15px;}}
+</style></head><body>
+<h1>Supervised Driving Log</h1>
+<p class="sub">Minnesota Driver &amp; Vehicle Services — Required for Provisional License</p>
+<div class="info">
+  <strong>Student Name:</strong> ${esc(name)}<br>
+  <strong>Goal:</strong> ${goalHours} hours (${goalHours === 40 ? 'with supplemental parent class' : 'no supplemental parent class'})<br>
+  <strong>Date Printed:</strong> ${new Date().toLocaleDateString()}
+</div>
+<table>
+  <thead><tr>
+    <th>Date</th><th>Time</th><th>Day Min</th><th>Night Min</th><th>Total Min</th><th>Skills Practiced</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<table class="totals">
+  <tr>
+    <td>TOTALS:</td>
+    <td>Day: <strong>${totalDay} min</strong></td>
+    <td>Night: <strong>${totalNight} min</strong></td>
+    <td>Total: <strong>${totalAll} min (${(totalAll/60).toFixed(1)} hrs)</strong></td>
+  </tr>
+</table>
+<div class="req">
+  <strong>Requirements:</strong> 40 hours total (with parent class) OR 50 hours total (without parent class), including at least 15 hours of nighttime driving.
+</div>
+<div class="sig">
+  <p>"I hereby affirm that I am the parent/guardian who has supervised my teen driver for the majority of the required driving hours, and that my teen has driven the hours listed above."</p>
+  <br>
+  <p>Signature: <span class="sig-line"></span> Date: ___________</p>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+
+  // Open email client if email provided
+  if (email) {
+    const subject = encodeURIComponent('Driving Log — ' + name);
+    const body = encodeURIComponent(
+      'Hi,\n\nAttached is ' + name + '\'s supervised driving log.\n\n' +
+      'Summary:\n' +
+      '• Total: ' + totalAll + ' minutes (' + (totalAll/60).toFixed(1) + ' hrs)\n' +
+      '• Day: ' + totalDay + ' minutes\n' +
+      '• Night: ' + totalNight + ' minutes\n\n' +
+      '⚠️ REMINDER: Print this log and bring it to the DMV when taking the provisional license test!\n\n' +
+      '(Use File > Print or Ctrl+P / Cmd+P on the page that just opened)'
+    );
+    setTimeout(() => { window.location.href = 'mailto:' + email + '?subject=' + subject + '&body=' + body; }, 1500);
+  }
+
+  closeModal('exportModal');
+}
+
+// ── RENDER ──
+function render() {
+  const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
+  const totalNight = entries.reduce((s,e) => s + e.nightMins, 0);
+  const totalAll = totalDay + totalNight;
+
+  document.getElementById('totalDay').textContent = totalDay;
+  document.getElementById('totalNight').textContent = totalNight;
+  document.getElementById('totalAll').textContent = totalAll;
+
+  const goalMins = goalHours * 60;
+  const pT = Math.min(100, Math.round(totalAll / goalMins * 100));
+  const pN = Math.min(100, Math.round(totalNight / NIGHT_GOAL * 100));
+  document.getElementById('barTotal').style.width = pT + '%';
+  document.getElementById('barNight').style.width = pN + '%';
+  document.getElementById('pctTotal').textContent = pT + '%';
+  document.getElementById('pctNight').textContent = pN + '%';
+  document.getElementById('entryCount').textContent = entries.length + (entries.length === 1 ? ' drive' : ' drives');
+
+  const list = document.getElementById('logList');
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🚘</div>No drives logged yet.<br>Tap Start Drive to begin!</div>';
+    return;
+  }
+  list.innerHTML = entries.map(e => {
+    const d = new Date(e.date + 'T12:00:00');
+    const mon = d.toLocaleString('default',{month:'short'}).toUpperCase();
+    const dn = d.getDate();
+    const tot = e.dayMins + e.nightMins;
+    return `<div class="log-entry">
+      <div class="entry-date${e.manual ? ' manual-entry' : ''}">
+        <div class="month">${mon}</div>
+        <div class="day-num">${dn}</div>
+      </div>
+      <div class="entry-info">
+        <div class="entry-time">${e.startStr} → ${e.endStr}${e.manual ? ' · manual' : ''}</div>
+        <div class="entry-mins">
+          ${e.dayMins > 0 ? `<span class="min-badge day">☀️ ${e.dayMins}m</span>` : ''}
+          ${e.nightMins > 0 ? `<span class="min-badge night">🌙 ${e.nightMins}m</span>` : ''}
+          <span class="min-badge tot">${tot}m total</span>
+        </div>
+        ${e.skills ? `<div class="entry-skills">${esc(e.skills)}</div>` : ''}
+      </div>
+      <button class="delete-btn" onclick="deleteEntry(${e.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ── MODAL HELPERS ──
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.getElementById(id).addEventListener('click', function handler(ev) {
+    if (ev.target === this) { this.classList.remove('open'); this.removeEventListener('click', handler); }
+  });
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── UTILS ──
+function fmtTime(d) {
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+function fmtDate(d) {
+  return d.toISOString().split('T')[0];
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Request notification permission on page load
+if (window.Notification && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+
+init();
+</script>
+</body>
+</html>
