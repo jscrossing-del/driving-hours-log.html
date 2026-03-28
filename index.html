@@ -45,15 +45,8 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
 .info-field input { flex:1; background:none; border:none; color:#fff; font-size:.95rem; font-weight:600; outline:none; }
 .info-field input::placeholder { color:#444; font-weight:400; }
 
-/* Goal toggle */
-.goal-toggle { display:flex; gap:8px; margin-bottom:14px; }
-.goal-opt {
-  flex:1; padding:10px; border-radius:10px; border:2px solid #0f3460;
-  background:#16213e; color:#888; font-size:.75rem; font-weight:600;
-  text-align:center; cursor:pointer; transition:all .2s;
-}
-.goal-opt.active { border-color:#e94560; background:rgba(233,69,96,.1); color:#e94560; }
-.goal-opt .hrs { font-size:1.1rem; font-weight:800; display:block; }
+.goal-rem { font-size:.72rem; color:#888; text-align:right; margin:-2px 0 10px; padding-right:2px; }
+.goal-rem.done { color:#27ae60; }
 
 /* Progress Cards */
 .progress-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
@@ -235,17 +228,6 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
   </div>
 </div>
 
-<!-- Goal Toggle -->
-<div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px;">Goal Type</div>
-<div class="goal-toggle">
-  <div class="goal-opt active" id="goal40" onclick="setGoal(40)">
-    <span class="hrs">40 hrs</span>With Parent Class
-  </div>
-  <div class="goal-opt" id="goal50" onclick="setGoal(50)">
-    <span class="hrs">50 hrs</span>No Parent Class
-  </div>
-</div>
-
 <!-- Progress Cards -->
 <div class="progress-grid">
   <div class="progress-card">
@@ -269,15 +251,17 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
 <div class="goal-section">
   <div class="goal-title">Progress to Goal</div>
   <div class="goal-row">
-    <div class="goal-label" id="goalLabel">Total (40 hrs)</div>
+    <div class="goal-label">Total (50 hrs)</div>
     <div class="bar-wrap"><div class="bar-fill total-bar" id="barTotal" style="width:0%"></div></div>
     <div class="goal-pct" id="pctTotal">0%</div>
   </div>
+  <div class="goal-rem" id="remTotal">50 hr remaining</div>
   <div class="goal-row">
     <div class="goal-label">Night (15 hrs)</div>
     <div class="bar-wrap"><div class="bar-fill night-bar" id="barNight" style="width:0%"></div></div>
     <div class="goal-pct" id="pctNight">0%</div>
   </div>
+  <div class="goal-rem" id="remNight">15 hr remaining</div>
 </div>
 
 <!-- Active Drive Card -->
@@ -396,7 +380,7 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
 // ── STATE ──
 let entries = [];
 let activeDrive = null; // { startTime: Date, startStr: string }
-let goalHours = 40;
+let goalHours = 50;
 let timerInterval = null;
 let geoWatcher = null;
 let userLat = 44.98; // Minneapolis default
@@ -413,7 +397,6 @@ function init() {
   if (saved) entries = JSON.parse(saved);
   const sn = localStorage.getItem('dlName'); if (sn) document.getElementById('studentName').value = sn;
   const em = localStorage.getItem('dlEmail'); if (em) document.getElementById('emailAddr').value = em;
-  const sg = localStorage.getItem('dlGoal'); if (sg) setGoal(parseInt(sg), true);
   const ad = localStorage.getItem('dlActive');
   if (ad) {
     activeDrive = JSON.parse(ad);
@@ -435,16 +418,6 @@ function save(type) {
   if (type === 'email') localStorage.setItem('dlEmail', document.getElementById('emailAddr').value);
 }
 function saveEntries() { localStorage.setItem('dlEntries', JSON.stringify(entries)); }
-
-// ── GOAL ──
-function setGoal(hrs, silent) {
-  goalHours = hrs;
-  if (!silent) localStorage.setItem('dlGoal', hrs);
-  document.getElementById('goal40').classList.toggle('active', hrs === 40);
-  document.getElementById('goal50').classList.toggle('active', hrs === 50);
-  document.getElementById('goalLabel').textContent = `Total (${hrs} hrs)`;
-  render();
-}
 
 // ── SUNRISE/SUNSET ──
 function getSunTimes(date) {
@@ -754,7 +727,7 @@ function exportLog() {
 <p class="sub">Minnesota Driver &amp; Vehicle Services — Required for Provisional License</p>
 <div class="info">
   <strong>Student Name:</strong> ${esc(name)}<br>
-  <strong>Goal:</strong> ${goalHours} hours (${goalHours === 40 ? 'with supplemental parent class' : 'no supplemental parent class'})<br>
+  <strong>Goal:</strong> 50 hours (no supplemental parent class)<br>
   <strong>Date Printed:</strong> ${new Date().toLocaleDateString()}
 </div>
 <table>
@@ -821,6 +794,24 @@ function render() {
   document.getElementById('barNight').style.width = pN + '%';
   document.getElementById('pctTotal').textContent = pT + '%';
   document.getElementById('pctNight').textContent = pN + '%';
+
+  // Remaining time
+  const remTotalMins = Math.max(0, goalMins - totalAll);
+  const remNightMins = Math.max(0, NIGHT_GOAL - totalNight);
+  function fmtRem(mins) {
+    if (mins <= 0) return '✅ Goal reached!';
+    const h = Math.floor(mins / 60), m = mins % 60;
+    if (h === 0) return m + ' min remaining';
+    if (m === 0) return h + ' hr remaining';
+    return h + ' hr ' + m + ' min remaining';
+  }
+  const remTEl = document.getElementById('remTotal');
+  const remNEl = document.getElementById('remNight');
+  remTEl.textContent = fmtRem(remTotalMins);
+  remTEl.className = 'goal-rem' + (remTotalMins <= 0 ? ' done' : '');
+  remNEl.textContent = fmtRem(remNightMins);
+  remNEl.className = 'goal-rem' + (remNightMins <= 0 ? ' done' : '');
+
   document.getElementById('entryCount').textContent = entries.length + (entries.length === 1 ? ' drive' : ' drives');
 
   const list = document.getElementById('logList');
