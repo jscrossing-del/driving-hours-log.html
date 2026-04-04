@@ -4,49 +4,154 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Driving Hours Log</title>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #1a1a2e;
-  color: #eee;
-  min-height: 100vh;
-  padding: 16px 16px 100px;
-  max-width: 500px;
-  margin: 0 auto;
+  background: #1a1a2e; color: #eee; min-height: 100vh;
 }
 
-h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bottom:4px; }
-.subtitle { text-align:center; font-size:.82rem; color:#888; margin-bottom:18px; }
+/* ── FULL-PAGE SCREENS ── */
+.screen {
+  display:none; position:fixed; inset:0; background:#1a1a2e;
+  z-index:300; overflow-y:auto; padding:40px 20px 60px;
+  max-width:500px; margin:0 auto;
+}
+.screen.active { display:block; }
+.screen-logo { font-size:3rem; text-align:center; margin-bottom:8px; }
+.screen-title { font-size:1.7rem; font-weight:800; text-align:center; color:#fff; margin-bottom:6px; }
+.screen-sub { font-size:.85rem; color:#888; text-align:center; margin-bottom:30px; line-height:1.5; }
+
+/* Setup steps */
+.setup-step {
+  background:#16213e; border-radius:14px; padding:16px; margin-bottom:12px;
+  border:2px solid #0f3460;
+}
+.step-num {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:26px; height:26px; background:#e94560; border-radius:50%;
+  font-size:.75rem; font-weight:800; color:#fff; margin-bottom:8px; flex-shrink:0;
+}
+.step-title { font-size:.95rem; font-weight:700; color:#fff; margin-bottom:4px; }
+.step-desc { font-size:.8rem; color:#aaa; line-height:1.5; }
+.step-code {
+  background:#0a1628; border-radius:8px; padding:10px 12px; margin-top:8px;
+  font-family:monospace; font-size:.78rem; color:#7ec8e3; overflow-x:auto;
+  white-space:pre; border:1px solid #1a4a7a;
+}
+.setup-paste-area {
+  width:100%; background:#0f3460; border:2px solid #1a4a7a; border-radius:10px;
+  padding:12px; color:#fff; font-size:.8rem; font-family:monospace;
+  min-height:130px; outline:none; resize:none; margin-top:8px;
+}
+.setup-paste-area:focus { border-color:#e94560; }
+.big-btn {
+  width:100%; padding:16px; border:none; border-radius:14px;
+  font-size:1rem; font-weight:700; cursor:pointer; margin-top:8px;
+  transition:transform .1s;
+}
+.big-btn:active { transform:scale(.98); }
+.big-btn.red { background:linear-gradient(135deg,#e94560,#c0392b); color:#fff; box-shadow:0 4px 16px rgba(233,69,96,.35); }
+.big-btn.green { background:linear-gradient(135deg,#27ae60,#1e8449); color:#fff; box-shadow:0 4px 16px rgba(39,174,96,.35); }
+.big-btn.blue { background:linear-gradient(135deg,#3a86ff,#2667cc); color:#fff; box-shadow:0 4px 16px rgba(58,134,255,.35); }
+.big-btn.outline { background:transparent; border:2px solid #0f3460; color:#888; }
+.setup-err { color:#e94560; font-size:.8rem; margin-top:8px; min-height:20px; }
+
+/* Auth tabs */
+.auth-tabs { display:flex; gap:0; background:#0f3460; border-radius:12px; padding:4px; margin-bottom:20px; }
+.auth-tab {
+  flex:1; padding:10px; text-align:center; font-size:.85rem; font-weight:600;
+  border-radius:10px; cursor:pointer; color:#888; transition:all .2s;
+}
+.auth-tab.active { background:#16213e; color:#fff; }
+.auth-panel { display:none; }
+.auth-panel.active { display:block; }
+.auth-divider { text-align:center; color:#555; font-size:.8rem; margin:14px 0; position:relative; }
+.auth-divider::before, .auth-divider::after {
+  content:''; position:absolute; top:50%; width:42%; height:1px; background:#1a4a7a;
+}
+.auth-divider::before { left:0; }
+.auth-divider::after { right:0; }
+.google-btn {
+  width:100%; padding:14px; background:#fff; border:2px solid #ddd; border-radius:12px;
+  color:#333; font-size:.9rem; font-weight:600; cursor:pointer; display:flex;
+  align-items:center; justify-content:center; gap:10px; margin-bottom:4px;
+}
+.google-btn:hover { background:#f5f5f5; }
+.google-note { font-size:.7rem; color:#666; text-align:center; margin-bottom:10px; }
+.auth-form-group { margin-bottom:12px; }
+.auth-form-group label { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:5px; }
+.auth-form-group input {
+  width:100%; background:#0f3460; border:2px solid #1a4a7a; border-radius:10px;
+  padding:12px 14px; color:#fff; font-size:.95rem; outline:none;
+}
+.auth-form-group input:focus { border-color:#e94560; }
+.auth-err { color:#e94560; font-size:.8rem; margin:8px 0; min-height:18px; }
+.auth-footer { font-size:.75rem; color:#666; text-align:center; margin-top:16px; }
+.auth-footer a { color:#e94560; cursor:pointer; text-decoration:none; }
+.forgot-link { font-size:.75rem; color:#3a86ff; cursor:pointer; text-align:right; margin-top:4px; }
+
+/* ── MAIN APP ── */
+#mainApp {
+  display:none; padding:16px 16px 100px;
+  max-width:500px; margin:0 auto;
+}
+#mainApp.active { display:block; }
+
+/* Header */
+.app-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.app-title { font-size:1.3rem; font-weight:800; color:#fff; }
+.header-right { display:flex; align-items:center; gap:10px; }
+.sync-dot { width:8px; height:8px; border-radius:50%; background:#27ae60; flex-shrink:0; }
+.sync-dot.syncing { background:#f39c12; animation:blink 1s infinite; }
+.sync-dot.error { background:#e94560; }
+.user-chip {
+  background:#16213e; border:1px solid #0f3460; border-radius:20px;
+  padding:4px 12px 4px 8px; font-size:.72rem; color:#ccc;
+  display:flex; align-items:center; gap:6px; max-width:160px; overflow:hidden;
+}
+.user-chip .avatar {
+  width:22px; height:22px; border-radius:50%; background:#e94560;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.65rem; font-weight:800; color:#fff; flex-shrink:0;
+}
+.user-chip .uname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.signout-btn {
+  background:none; border:1px solid #333; color:#666; border-radius:8px;
+  padding:4px 10px; font-size:.72rem; cursor:pointer;
+}
+.signout-btn:hover { border-color:#e94560; color:#e94560; }
 
 /* Stop Alert Banner */
 #stopAlert {
-  display:none;
-  background: linear-gradient(135deg,#e94560,#c0392b);
-  border-radius:14px;
-  padding:14px 16px;
-  margin-bottom:14px;
-  animation: pulse 1.5s infinite;
+  display:none; background:linear-gradient(135deg,#e94560,#c0392b);
+  border-radius:14px; padding:14px 16px; margin-bottom:14px;
+  animation:pulse 1.5s infinite;
 }
 #stopAlert.show { display:flex; align-items:center; gap:12px; }
 #stopAlert .alert-text { flex:1; font-size:.9rem; font-weight:600; }
 #stopAlert .alert-text small { display:block; font-size:.75rem; font-weight:400; opacity:.85; }
 #stopAlert button { background:rgba(255,255,255,.2); border:2px solid rgba(255,255,255,.5); color:#fff; border-radius:10px; padding:8px 14px; font-weight:700; font-size:.85rem; cursor:pointer; white-space:nowrap; }
 @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(233,69,96,.5)} 50%{box-shadow:0 0 0 10px rgba(233,69,96,0)} }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-/* Name + Email bar */
-.info-bar {
-  background:#16213e; border-radius:12px; padding:12px 16px;
-  margin-bottom:12px; border:2px solid #0f3460;
-}
+/* Info bar (name only now, email from auth) */
+.info-bar { background:#16213e; border-radius:12px; padding:12px 16px; margin-bottom:12px; border:2px solid #0f3460; }
 .info-field { display:flex; align-items:center; gap:10px; }
-.info-field + .info-field { margin-top:10px; padding-top:10px; border-top:1px solid #0f3460; }
 .info-field label { font-size:.72rem; color:#888; text-transform:uppercase; letter-spacing:1px; width:62px; flex-shrink:0; }
 .info-field input { flex:1; background:none; border:none; color:#fff; font-size:.95rem; font-weight:600; outline:none; }
 .info-field input::placeholder { color:#444; font-weight:400; }
 
-.goal-rem { font-size:.72rem; color:#888; text-align:right; margin:-2px 0 10px; padding-right:2px; }
-.goal-rem.done { color:#27ae60; }
+/* Goal toggle */
+.goal-toggle-label { font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:8px; }
+.goal-toggle { display:flex; gap:8px; margin-bottom:14px; }
+.goal-opt { flex:1; padding:10px; border-radius:10px; border:2px solid #0f3460; background:#16213e; color:#888; font-size:.75rem; font-weight:600; text-align:center; cursor:pointer; transition:all .2s; }
+.goal-opt.active { border-color:#e94560; background:rgba(233,69,96,.1); color:#e94560; }
+.goal-opt .hrs { font-size:1.1rem; font-weight:800; display:block; }
 
 /* Progress Cards */
 .progress-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
@@ -68,59 +173,35 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
 .bar-fill.total-bar { background:linear-gradient(90deg,#e94560,#ff6b6b); }
 .bar-fill.night-bar { background:linear-gradient(90deg,#533483,#9b59b6); }
 .goal-pct { font-size:.72rem; color:#888; width:32px; text-align:right; flex-shrink:0; }
+.goal-rem { font-size:.72rem; color:#888; text-align:right; margin:-2px 0 10px; padding-right:2px; }
+.goal-rem.done { color:#27ae60; }
 
 /* Active Drive Card */
-#activeDriveCard {
-  display:none;
-  background:linear-gradient(135deg,#0d3b1e,#1a4d2a);
-  border:2px solid #27ae60;
-  border-radius:16px;
-  padding:18px;
-  margin-bottom:16px;
-}
+#activeDriveCard { display:none; background:linear-gradient(135deg,#0d3b1e,#1a4d2a); border:2px solid #27ae60; border-radius:16px; padding:18px; margin-bottom:16px; }
 #activeDriveCard.show { display:block; }
 .active-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .active-dot { width:12px; height:12px; background:#27ae60; border-radius:50%; animation:blink 1s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 .active-label { font-size:.8rem; color:#2ecc71; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
 .active-since { font-size:.75rem; color:#888; }
 .timer-display { font-size:3rem; font-weight:800; color:#2ecc71; text-align:center; letter-spacing:2px; margin:8px 0; font-variant-numeric:tabular-nums; }
 .active-info { display:flex; justify-content:space-between; font-size:.75rem; color:#aaa; margin-top:8px; }
 .geo-status { font-size:.72rem; color:#888; text-align:center; margin-top:6px; }
 
-/* Main Action Buttons */
+/* Action Buttons */
 .action-row { display:flex; gap:12px; margin-bottom:16px; }
-#startBtn {
-  flex:1; padding:20px 16px; background:linear-gradient(135deg,#27ae60,#1e8449);
-  color:#fff; font-size:1.3rem; font-weight:800; border:none; border-radius:16px;
-  cursor:pointer; box-shadow:0 4px 20px rgba(39,174,96,.4); transition:transform .1s;
-  letter-spacing:.5px;
-}
+#startBtn { flex:1; padding:20px 16px; background:linear-gradient(135deg,#27ae60,#1e8449); color:#fff; font-size:1.3rem; font-weight:800; border:none; border-radius:16px; cursor:pointer; box-shadow:0 4px 20px rgba(39,174,96,.4); transition:transform .1s; letter-spacing:.5px; }
 #startBtn:active { transform:scale(.97); }
-#endBtn {
-  flex:1; padding:20px 16px; background:linear-gradient(135deg,#e94560,#c0392b);
-  color:#fff; font-size:1.3rem; font-weight:800; border:none; border-radius:16px;
-  cursor:pointer; box-shadow:0 4px 20px rgba(233,69,96,.4); transition:transform .1s;
-  letter-spacing:.5px; display:none;
-}
+#endBtn { flex:1; padding:20px 16px; background:linear-gradient(135deg,#e94560,#c0392b); color:#fff; font-size:1.3rem; font-weight:800; border:none; border-radius:16px; cursor:pointer; box-shadow:0 4px 20px rgba(233,69,96,.4); transition:transform .1s; letter-spacing:.5px; display:none; }
 #endBtn:active { transform:scale(.97); }
 #endBtn.show { display:block; }
-.manual-btn {
-  width:100%; padding:14px; background:#16213e; border:2px dashed #0f3460;
-  color:#888; font-size:.95rem; font-weight:600; border-radius:14px;
-  cursor:pointer; margin-bottom:16px; transition:all .2s;
-}
+.manual-btn { width:100%; padding:14px; background:#16213e; border:2px dashed #0f3460; color:#888; font-size:.95rem; font-weight:600; border-radius:14px; cursor:pointer; margin-bottom:16px; transition:all .2s; }
 .manual-btn:hover { border-color:#888; color:#ccc; }
 
-/* Log section */
+/* Log */
 .log-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .log-title { font-size:.75rem; text-transform:uppercase; letter-spacing:1px; color:#888; }
 .entry-count { background:#e94560; color:#fff; font-size:.68rem; font-weight:700; border-radius:20px; padding:2px 10px; }
-
-.log-entry {
-  background:#16213e; border-radius:12px; padding:14px; margin-bottom:10px;
-  border:2px solid #0f3460; display:flex; align-items:center; gap:12px;
-}
+.log-entry { background:#16213e; border-radius:12px; padding:14px; margin-bottom:10px; border:2px solid #0f3460; display:flex; align-items:center; gap:12px; }
 .entry-date { background:#e94560; border-radius:8px; padding:8px 10px; text-align:center; flex-shrink:0; min-width:50px; }
 .entry-date.manual-entry { background:#533483; }
 .entry-date .month { font-size:.58rem; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.8); }
@@ -138,781 +219,135 @@ h1 { text-align:center; font-size:1.8rem; font-weight:800; color:#fff; margin-bo
 .edit-btn { background:none; border:none; color:#555; font-size:.95rem; cursor:pointer; padding:4px 6px; flex-shrink:0; }
 .edit-btn:hover { color:#3a86ff; }
 .entry-actions { display:flex; flex-direction:column; align-items:center; gap:2px; }
-
 .empty-state { text-align:center; padding:30px; color:#555; font-size:.9rem; }
 .empty-state .icon { font-size:2.5rem; margin-bottom:8px; }
 
-/* Export Section */
+/* Export */
 .export-section { margin-top:20px; }
-.export-btn {
-  width:100%; padding:16px; background:linear-gradient(135deg,#0f9b8e,#0a7a6e);
-  color:#fff; font-size:1rem; font-weight:700; border:none; border-radius:14px;
-  cursor:pointer; box-shadow:0 4px 16px rgba(15,155,142,.35); margin-bottom:8px;
-}
+.export-btn { width:100%; padding:16px; background:linear-gradient(135deg,#0f9b8e,#0a7a6e); color:#fff; font-size:1rem; font-weight:700; border:none; border-radius:14px; cursor:pointer; box-shadow:0 4px 16px rgba(15,155,142,.35); margin-bottom:8px; }
 .export-hint { font-size:.72rem; color:#666; text-align:center; }
 
 /* Modals */
-.modal-overlay {
-  display:none; position:fixed; inset:0; background:rgba(0,0,0,.8);
-  z-index:200; align-items:flex-end; justify-content:center;
-}
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.8); z-index:200; align-items:flex-end; justify-content:center; }
 .modal-overlay.open { display:flex; }
-.modal {
-  background:#16213e; border-radius:20px 20px 0 0; padding:24px 20px 40px;
-  width:100%; max-width:500px; border-top:3px solid #e94560;
-  max-height:90vh; overflow-y:auto;
-}
+.modal { background:#16213e; border-radius:20px 20px 0 0; padding:24px 20px 40px; width:100%; max-width:500px; border-top:3px solid #e94560; max-height:90vh; overflow-y:auto; }
 .modal.green-top { border-top-color:#27ae60; }
 .modal.teal-top { border-top-color:#0f9b8e; }
 .modal h2 { font-size:1.15rem; font-weight:700; margin-bottom:18px; color:#fff; }
 .form-group { margin-bottom:14px; }
 .form-group label { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:6px; }
-.form-group input, .form-group textarea, .form-group select {
-  width:100%; background:#0f3460; border:2px solid #1a4a7a; border-radius:10px;
-  padding:12px 14px; color:#fff; font-size:.95rem; outline:none; transition:border-color .2s;
-}
+.form-group input, .form-group textarea { width:100%; background:#0f3460; border:2px solid #1a4a7a; border-radius:10px; padding:12px 14px; color:#fff; font-size:.95rem; outline:none; transition:border-color .2s; }
 .form-group input:focus, .form-group textarea:focus { border-color:#e94560; }
 .form-group textarea { resize:none; height:65px; }
 .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.quick-btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-.qb { background:#0f3460; border:2px solid #1a4a7a; color:#ccc; border-radius:8px; padding:5px 10px; font-size:.78rem; cursor:pointer; }
-.qb:hover, .qb:active { background:#e94560; color:#fff; border-color:#e94560; }
 .modal-actions { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
 .btn-cancel { padding:14px; background:#0f3460; border:none; border-radius:12px; color:#aaa; font-size:.95rem; font-weight:600; cursor:pointer; }
 .btn-save { padding:14px; background:linear-gradient(135deg,#e94560,#c0392b); border:none; border-radius:12px; color:#fff; font-size:.95rem; font-weight:700; cursor:pointer; }
 .btn-save.green { background:linear-gradient(135deg,#27ae60,#1e8449); }
 .btn-save.teal { background:linear-gradient(135deg,#0f9b8e,#0a7a6e); }
-
-/* Time adjust info */
-.time-display {
-  background:#0a1628; border-radius:10px; padding:14px; text-align:center;
-  margin-bottom:14px; border:2px solid #0f3460;
-}
+.time-display { background:#0a1628; border-radius:10px; padding:14px; text-align:center; margin-bottom:14px; border:2px solid #0f3460; }
 .time-display .td-label { font-size:.7rem; color:#888; text-transform:uppercase; letter-spacing:1px; }
 .time-display .td-val { font-size:2rem; font-weight:800; color:#2ecc71; margin:4px 0; }
 .time-display .td-sub { font-size:.75rem; color:#888; }
-
-/* Export modal specific */
 .export-summary { background:#0a1628; border-radius:12px; padding:14px; margin-bottom:16px; }
 .exp-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #0f3460; font-size:.85rem; }
 .exp-row:last-child { border-bottom:none; }
 .exp-row .exp-val { font-weight:700; color:#0f9b8e; }
-.reminder-box {
-  background:rgba(233,69,96,.1); border:2px solid rgba(233,69,96,.3);
-  border-radius:12px; padding:14px; margin:16px 0; font-size:.82rem; line-height:1.6;
-  color:#ffb3b3;
-}
+.reminder-box { background:rgba(233,69,96,.1); border:2px solid rgba(233,69,96,.3); border-radius:12px; padding:14px; margin:16px 0; font-size:.82rem; line-height:1.6; color:#ffb3b3; }
 .reminder-box strong { color:#e94560; display:block; margin-bottom:4px; }
 </style>
 </head>
 <body>
 
-<h1>🚗 Driving Hours Log</h1>
-<p class="subtitle">Minnesota Supervised Driving — Under 18</p>
+<!-- ══ SETUP SCREEN ══ -->
+<div id="setupScreen" class="screen active">
+  <div class="screen-logo">🔧</div>
+  <div class="screen-title">One-Time Setup</div>
+  <div class="screen-sub">To keep your data safe across devices,<br>connect a free Firebase account.</div>
 
-<!-- Stop Alert -->
-<div id="stopAlert">
-  <div class="alert-text">
-    ⚠️ Looks like you stopped!
-    <small>Car hasn't moved in 5+ minutes — forget to end your drive?</small>
+  <div class="setup-step">
+    <div class="step-num">1</div>
+    <div class="step-title">Create a free Firebase project</div>
+    <div class="step-desc">Go to <strong style="color:#3a86ff">console.firebase.google.com</strong> → Click <strong>"Add project"</strong> → Name it "Driving Log" → Continue through the steps.</div>
   </div>
-  <button onclick="dismissStopAlert()">End Drive</button>
-</div>
 
-<!-- Student Info -->
-<div class="info-bar">
-  <div class="info-field">
-    <label>Student</label>
-    <input type="text" id="studentName" placeholder="Your name" oninput="save('name')">
+  <div class="setup-step">
+    <div class="step-num">2</div>
+    <div class="step-title">Add a Web App &amp; copy the config</div>
+    <div class="step-desc">In your project, click the <strong>&lt;/&gt;</strong> (Web) icon → Register app → Copy the <code style="color:#7ec8e3">firebaseConfig</code> object that appears.</div>
   </div>
-  <div class="info-field">
-    <label>Email</label>
-    <input type="email" id="emailAddr" placeholder="your@email.com" oninput="save('email')">
-  </div>
-</div>
 
-<!-- Progress Cards -->
-<div class="progress-grid">
-  <div class="progress-card">
-    <div class="label">☀️ Day</div>
-    <div class="value" id="totalDay">0</div>
-    <div class="unit">minutes</div>
+  <div class="setup-step">
+    <div class="step-num">3</div>
+    <div class="step-title">Enable Authentication</div>
+    <div class="step-desc">Left sidebar → <strong>Build → Authentication → Get started</strong> → Enable <strong>Email/Password</strong>. Optionally enable <strong>Google</strong> too.</div>
   </div>
-  <div class="progress-card night">
-    <div class="label">🌙 Night</div>
-    <div class="value" id="totalNight">0</div>
-    <div class="unit">minutes</div>
+
+  <div class="setup-step">
+    <div class="step-num">4</div>
+    <div class="step-title">Enable Firestore Database</div>
+    <div class="step-desc">Left sidebar → <strong>Build → Firestore Database → Create database</strong> → Choose <strong>Start in test mode</strong> → Pick a region → Done.</div>
   </div>
-  <div class="progress-card total">
-    <div class="label">Total</div>
-    <div class="value" id="totalAll">0</div>
-    <div class="unit">minutes</div>
+
+  <div class="setup-step">
+    <div class="step-num">5</div>
+    <div class="step-title">Paste your Firebase config below</div>
+    <div class="step-desc">Paste the entire <code style="color:#7ec8e3">firebaseConfig = { ... }</code> block or just the JSON object:</div>
+    <textarea class="setup-paste-area" id="configPaste" placeholder='Paste here, e.g.:
+{
+  "apiKey": "AIza...",
+  "authDomain": "your-app.firebaseapp.com",
+  "projectId": "your-app",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123:web:abc"
+}'></textarea>
+    <div class="setup-err" id="setupErr"></div>
+    <button class="big-btn red" onclick="submitSetup()">Connect &amp; Continue →</button>
   </div>
-</div>
 
-<!-- Progress Bars -->
-<div class="goal-section">
-  <div class="goal-title">Progress to Goal</div>
-  <div class="goal-row">
-    <div class="goal-label">Total (50 hrs)</div>
-    <div class="bar-wrap"><div class="bar-fill total-bar" id="barTotal" style="width:0%"></div></div>
-    <div class="goal-pct" id="pctTotal">0%</div>
-  </div>
-  <div class="goal-rem" id="remTotal">50 hr remaining</div>
-  <div class="goal-row">
-    <div class="goal-label">Night (15 hrs)</div>
-    <div class="bar-wrap"><div class="bar-fill night-bar" id="barNight" style="width:0%"></div></div>
-    <div class="goal-pct" id="pctNight">0%</div>
-  </div>
-  <div class="goal-rem" id="remNight">15 hr remaining</div>
-</div>
-
-<!-- Active Drive Card -->
-<div id="activeDriveCard">
-  <div class="active-header">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <div class="active-dot"></div>
-      <span class="active-label">Drive In Progress</span>
-    </div>
-    <span class="active-since" id="activeSince"></span>
-  </div>
-  <div class="timer-display" id="timerDisplay">0:00:00</div>
-  <div class="active-info">
-    <span id="dayNightStatus">Calculating day/night...</span>
-    <span id="currentDayNight"></span>
-  </div>
-  <div class="geo-status" id="geoStatus">📍 Getting location...</div>
-</div>
-
-<!-- Action Buttons -->
-<div class="action-row">
-  <button id="startBtn" onclick="startDrive()">▶ Start Drive</button>
-  <button id="endBtn" onclick="openEndModal()">■ End Drive</button>
-</div>
-<button class="manual-btn" onclick="openManualModal()">+ Add Hours Manually (forgot to use app)</button>
-
-<!-- Log List -->
-<div class="log-header">
-  <div class="log-title">Drive History</div>
-  <div class="entry-count" id="entryCount">0 drives</div>
-</div>
-<div id="logList"></div>
-
-<!-- Export -->
-<div class="export-section">
-  <button class="export-btn" onclick="openExportModal()">📄 Done — Export & Email Log</button>
-  <div class="export-hint">Generates your log to email &amp; print before your test</div>
-</div>
-
-<!-- ── MODALS ── -->
-
-<!-- End Drive Modal -->
-<div class="modal-overlay" id="endModal">
-  <div class="modal green-top">
-    <h2>End Drive</h2>
-    <div class="time-display">
-      <div class="td-label">End Time</div>
-      <div class="td-val" id="endTimeDisplay">—</div>
-      <div class="td-sub">Adjust below if you forgot to stop</div>
-    </div>
-    <div class="form-group">
-      <label>Adjust End Time (if needed)</label>
-      <input type="time" id="endTimeInput">
-    </div>
-    <div class="form-group">
-      <label>Skills Practiced</label>
-      <textarea id="endSkills" placeholder="e.g. highway, parking, turns, night driving..."></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('endModal')">Cancel</button>
-      <button class="btn-save green" onclick="saveDrive()">Save Drive</button>
-    </div>
+  <div style="text-align:center;margin-top:16px;">
+    <span style="font-size:.75rem;color:#555;cursor:pointer;" onclick="useLocalOnly()">Skip — use local storage only (data lost if phone lost)</span>
   </div>
 </div>
 
-<!-- Manual Entry Modal -->
-<div class="modal-overlay" id="manualModal">
-  <div class="modal">
-    <h2>Add Hours Manually</h2>
-    <div class="form-group">
-      <label>Date</label>
-      <input type="date" id="mDate">
-    </div>
-    <div class="row2">
-      <div class="form-group">
-        <label>Start Time</label>
-        <input type="time" id="mStart">
-      </div>
-      <div class="form-group">
-        <label>End Time</label>
-        <input type="time" id="mEnd">
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Skills Practiced</label>
-      <textarea id="mSkills" placeholder="e.g. parking, highway, turns..."></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('manualModal')">Cancel</button>
-      <button class="btn-save" onclick="saveManual()">Save Entry</button>
-    </div>
+<!-- ══ AUTH SCREEN ══ -->
+<div id="authScreen" class="screen">
+  <div class="screen-logo">🚗</div>
+  <div class="screen-title">Driving Hours Log</div>
+  <div class="screen-sub">Sign in to keep your data safe<br>on any device</div>
+
+  <div class="auth-tabs">
+    <div class="auth-tab active" id="tabSignIn" onclick="switchTab('signin')">Sign In</div>
+    <div class="auth-tab" id="tabSignUp" onclick="switchTab('signup')">Create Account</div>
   </div>
-</div>
 
-<!-- Edit Entry Modal -->
-<div class="modal-overlay" id="editModal">
-  <div class="modal">
-    <h2>✏️ Edit Drive Entry</h2>
-    <input type="hidden" id="eId">
-    <div class="form-group">
-      <label>Date</label>
-      <input type="date" id="eDate">
+  <!-- Sign In Panel -->
+  <div class="auth-panel active" id="panelSignin">
+    <button class="google-btn" onclick="googleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div class="google-note">⚠️ Google sign-in requires the app to be hosted on a website</div>
+    <div class="auth-divider">or use email</div>
+    <div class="auth-form-group">
+      <label>Email</label>
+      <input type="email" id="siEmail" placeholder="your@email.com" autocomplete="email">
     </div>
-    <div class="row2">
-      <div class="form-group">
-        <label>Start Time</label>
-        <input type="time" id="eStart">
-      </div>
-      <div class="form-group">
-        <label>End Time</label>
-        <input type="time" id="eEnd">
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Skills Practiced</label>
-      <textarea id="eSkills" placeholder="e.g. parking, highway, turns..."></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('editModal')">Cancel</button>
-      <button class="btn-save" onclick="saveEdit()">Save Changes</button>
-    </div>
-  </div>
-</div>
+    <div class="auth-form-group">
+      <label>Password</label>
+      <input type="password" id="siPass" placeholder="••••••••""WF�6���WFS�&7W'&V�B�77v�&B"��W�F�v��&�b�WfV�B�W����tV�FW"r�V���6�v�ₒ#���F�c��F�b6�73�&f�&v�B�Ɩ�"��6Ɩ6��!��ɝ��A���ݽɐ�����ɝ�Ё����ݽɐ�𽑥��(�����؁�������Ѡ���Ȉ����ͥ�Ȉ�𽑥��(�������ѽ�������􉉥���Ѹ�ɕ����������􉕵���M���%�������屔􉵅ɝ���ѽ��������M����%���H���ѽ��(��𽑥��((�������M����U��A��������(���؁�������Ѡ����������������M�������(�����؁�������Ѡ���ɴ��ɽ����(������񱅉���M�Ց��Н́9���𽱅����(���������Ё�����ѕ�Ј������9��������������������Ё1��Ј���ѽ������є􉹅����(����𽑥��(�����؁�������Ѡ���ɴ��ɽ����(������񱅉�������𽱅����(���������Ё����􉕵��������������������������������������������ѽ������є􉕵�����(����𽑥��(�����؁�������Ѡ���ɴ��ɽ����(������񱅉���A���ݽɐ��ج����Ʌ�ѕ�̤𽱅����(���������Ё���������ݽɐ�������A��̈������������������������������]]���\]OH��]�\\���ܙ�ۚ�^Y�ۏH�Y�]�[���^OOOI�[�\��Y[XZ[�Yە\
 
-<!-- Export Modal -->
-<div class="modal-overlay" id="exportModal">
-  <div class="modal teal-top">
-    <h2>📄 Export Driving Log</h2>
-    <div class="export-summary" id="exportSummary"></div>
-    <div class="reminder-box">
-      <strong>⚠️ Before Your Test — Remember!</strong>
-      Print this log and bring it with you. The DMV requires your signed supervised driving log to get your provisional license.
-    </div>
-    <div class="form-group">
-      <label>Your Email (to send to yourself)</label>
-      <input type="email" id="exportEmail" placeholder="your@email.com">
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('exportModal')">Close</button>
-      <button class="btn-save teal" onclick="exportLog()">📧 Email &amp; Print</button>
-    </div>
-  </div>
-</div>
+H����]���]��\��H�]]Y\���YH��Q\�����]����]ۈ�\��H��Y�X���Y�ۘ�X��H�[XZ[�Yە\
 
-<script>
-// ── STATE ──
-let entries = [];
-let activeDrive = null; // { startTime: Date, startStr: string }
-let goalHours = 50;
-let timerInterval = null;
-let geoWatcher = null;
-let userLat = 44.98; // Minneapolis default
-let userLng = -93.27;
-let lastMoveTime = null;
-let stopAlertTimer = null;
-let stopAlertShown = false;
+H��ܙX]HX���[�8���؝]ۏ���]����]��\��H�]]Y���\�����[�ۘ�X��H��\�]�]\
 
-const NIGHT_GOAL = 900; // 15 hrs in minutes
-
-// ── INIT ──
-function init() {
-  const saved = localStorage.getItem('dlEntries');
-  if (saved) entries = JSON.parse(saved);
-  const sn = localStorage.getItem('dlName'); if (sn) document.getElementById('studentName').value = sn;
-  const em = localStorage.getItem('dlEmail'); if (em) document.getElementById('emailAddr').value = em;
-  const ad = localStorage.getItem('dlActive');
-  if (ad) {
-    activeDrive = JSON.parse(ad);
-    activeDrive.startTime = new Date(activeDrive.startTime);
-    showActiveDrive();
-  }
-  // Get location
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(p => {
-      userLat = p.coords.latitude;
-      userLng = p.coords.longitude;
-    }, null, { timeout: 10000 });
-  }
-  render();
-}
-
-function save(type) {
-  if (type === 'name') localStorage.setItem('dlName', document.getElementById('studentName').value);
-  if (type === 'email') localStorage.setItem('dlEmail', document.getElementById('emailAddr').value);
-}
-function saveEntries() { localStorage.setItem('dlEntries', JSON.stringify(entries)); }
-
-// ── SUNRISE/SUNSET ──
-function getSunTimes(date) {
-  const rad = Math.PI / 180;
-  const dayOfYear = Math.floor((date - new Date(date.getFullYear(),0,0)) / 86400000);
-  const B = (360/365) * (dayOfYear - 81) * rad;
-  const decl = 23.45 * Math.sin(B) * rad;
-  const cosHA = -Math.tan(userLat * rad) * Math.tan(decl);
-  if (cosHA > 1 || cosHA < -1) return { sunriseMin: 360, sunsetMin: 1200 };
-  const HA = Math.acos(cosHA) / rad;
-  const E = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
-  const solarNoon = 720 - 4 * userLng - E;
-  const tzOffset = -date.getTimezoneOffset();
-  return {
-    sunriseMin: Math.round(solarNoon - 4 * HA + tzOffset),
-    sunsetMin:  Math.round(solarNoon + 4 * HA + tzOffset)
-  };
-}
-
-function calcDayNight(startMs, endMs) {
-  // Returns { dayMins, nightMins }
-  const startDate = new Date(startMs);
-  const { sunriseMin, sunsetMin } = getSunTimes(startDate);
-  let dayMins = 0, nightMins = 0;
-  const durationMin = Math.round((endMs - startMs) / 60000);
-  const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
-  const startMinOfDay = Math.round((startMs - startMidnight) / 60000);
-
-  for (let i = 0; i < durationMin; i++) {
-    const m = (startMinOfDay + i) % 1440;
-    if (m >= sunriseMin && m < sunsetMin) dayMins++;
-    else nightMins++;
-  }
-  return { dayMins, nightMins };
-}
-
-function isNightNow() {
-  const now = new Date();
-  const { sunriseMin, sunsetMin } = getSunTimes(now);
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const minNow = Math.round((now.getTime() - midnight) / 60000);
-  return minNow < sunriseMin || minNow >= sunsetMin;
-}
-
-// ── START DRIVE ──
-function startDrive() {
-  activeDrive = { startTime: new Date(), startStr: fmtTime(new Date()) };
-  localStorage.setItem('dlActive', JSON.stringify(activeDrive));
-  stopAlertShown = false;
-  startGeoWatch();
-  showActiveDrive();
-}
-
-function showActiveDrive() {
-  document.getElementById('activeDriveCard').classList.add('show');
-  document.getElementById('startBtn').style.display = 'none';
-  document.getElementById('endBtn').classList.add('show');
-  document.getElementById('activeSince').textContent = 'Started ' + activeDrive.startStr;
-  startTimer();
-}
-
-function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(updateTimer, 1000);
-  updateTimer();
-}
-
-function updateTimer() {
-  if (!activeDrive) return;
-  const elapsed = Date.now() - new Date(activeDrive.startTime).getTime();
-  const h = Math.floor(elapsed / 3600000);
-  const m = Math.floor((elapsed % 3600000) / 60000);
-  const s = Math.floor((elapsed % 60000) / 1000);
-  document.getElementById('timerDisplay').textContent =
-    h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-
-  const isNight = isNightNow();
-  document.getElementById('dayNightStatus').textContent = isNight ? '🌙 Night driving' : '☀️ Day driving';
-  document.getElementById('currentDayNight').textContent = fmtTime(new Date());
-}
-
-// ── GEOLOCATION WATCH (stop detection) ──
-function startGeoWatch() {
-  if (!navigator.geolocation) {
-    document.getElementById('geoStatus').textContent = '📍 Location unavailable — tap End when done';
-    return;
-  }
-  lastMoveTime = Date.now();
-  geoWatcher = navigator.geolocation.watchPosition(
-    pos => {
-      const speed = pos.coords.speed; // m/s, may be null
-      const moving = speed === null ? true : speed > 1.5; // ~3.4 mph
-      if (moving) {
-        lastMoveTime = Date.now();
-        stopAlertShown = false;
-        document.getElementById('stopAlert').classList.remove('show');
-        document.getElementById('geoStatus').textContent = '📍 Location tracking active';
-      }
-      // Check if stopped for 5 min
-      if (!stopAlertShown && Date.now() - lastMoveTime > 5 * 60 * 1000) {
-        showStopAlert();
-      }
-    },
-    err => {
-      document.getElementById('geoStatus').textContent = '📍 Location unavailable — tap End when done';
-    },
-    { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
-  );
-
-  // Fallback: check every 30s if no movement detected
-  stopAlertTimer = setInterval(() => {
-    if (activeDrive && lastMoveTime && !stopAlertShown && Date.now() - lastMoveTime > 5 * 60 * 1000) {
-      showStopAlert();
-    }
-  }, 30000);
-}
-
-function stopGeoWatch() {
-  if (geoWatcher !== null) { navigator.geolocation.clearWatch(geoWatcher); geoWatcher = null; }
-  if (stopAlertTimer) { clearInterval(stopAlertTimer); stopAlertTimer = null; }
-}
-
-function showStopAlert() {
-  if (!activeDrive) return;
-  stopAlertShown = true;
-  document.getElementById('stopAlert').classList.add('show');
-  // Change title to alert user
-  document.title = '⚠️ Drive ended? — Driving Hours Log';
-  // Try notification
-  if (window.Notification && Notification.permission === 'granted') {
-    new Notification('Drive ended?', { body: "Looks like you've stopped — tap to end your drive!", icon: '' });
-  }
-}
-
-function dismissStopAlert() {
-  document.getElementById('stopAlert').classList.remove('show');
-  openEndModal();
-}
-
-// ── END DRIVE ──
-function openEndModal() {
-  if (!activeDrive) return;
-  const now = new Date();
-  document.getElementById('endTimeDisplay').textContent = fmtTime(now);
-  document.getElementById('endTimeInput').value = now.toTimeString().slice(0,5);
-  document.getElementById('endSkills').value = '';
-  openModal('endModal');
-}
-
-function saveDrive() {
-  if (!activeDrive) return;
-  const startMs = new Date(activeDrive.startTime).getTime();
-
-  // Build end time from input
-  const endTimeVal = document.getElementById('endTimeInput').value; // "HH:MM"
-  const startDate = new Date(activeDrive.startTime);
-  let endMs;
-  if (endTimeVal) {
-    const [eh, em] = endTimeVal.split(':').map(Number);
-    const endDate = new Date(startDate);
-    endDate.setHours(eh, em, 0, 0);
-    if (endDate < startDate) endDate.setDate(endDate.getDate() + 1); // next day
-    endMs = endDate.getTime();
-  } else {
-    endMs = Date.now();
-  }
-
-  const { dayMins, nightMins } = calcDayNight(startMs, endMs);
-  const skills = document.getElementById('endSkills').value.trim();
-
-  entries.unshift({
-    id: Date.now(),
-    date: fmtDate(startDate),
-    startStr: activeDrive.startStr,
-    endStr: endTimeVal || fmtTime(new Date()),
-    dayMins, nightMins,
-    skills,
-    manual: false
-  });
-  saveEntries();
-
-  // Clear active
-  activeDrive = null;
-  localStorage.removeItem('dlActive');
-  clearInterval(timerInterval); timerInterval = null;
-  stopGeoWatch();
-  document.getElementById('activeDriveCard').classList.remove('show');
-  document.getElementById('startBtn').style.display = '';
-  document.getElementById('endBtn').classList.remove('show');
-  document.getElementById('stopAlert').classList.remove('show');
-  document.title = 'Driving Hours Log';
-
-  closeModal('endModal');
-  render();
-}
-
-// ── MANUAL ENTRY ──
-function openManualModal() {
-  document.getElementById('mDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('mStart').value = '';
-  document.getElementById('mEnd').value = '';
-  document.getElementById('mSkills').value = '';
-  openModal('manualModal');
-}
-
-function saveManual() {
-  const dateVal = document.getElementById('mDate').value;
-  const startVal = document.getElementById('mStart').value;
-  const endVal = document.getElementById('mEnd').value;
-  const skills = document.getElementById('mSkills').value.trim();
-
-  if (!dateVal || !startVal || !endVal) { alert('Please fill in date, start time, and end time.'); return; }
-
-  const [sy, sm, sd] = dateVal.split('-').map(Number);
-  const [sh, smin] = startVal.split(':').map(Number);
-  const [eh, emin] = endVal.split(':').map(Number);
-
-  const startMs = new Date(sy, sm-1, sd, sh, smin).getTime();
-  let endMs   = new Date(sy, sm-1, sd, eh, emin).getTime();
-  if (endMs <= startMs) endMs += 86400000; // next day
-
-  const { dayMins, nightMins } = calcDayNight(startMs, endMs);
-
-  entries.unshift({
-    id: Date.now(),
-    date: dateVal,
-    startStr: startVal,
-    endStr: endVal,
-    dayMins, nightMins,
-    skills,
-    manual: true
-  });
-  saveEntries();
-  closeModal('manualModal');
-  render();
-}
-
-// ── DELETE ──
-function deleteEntry(id) {
-  if (!confirm('Delete this drive entry?')) return;
-  entries = entries.filter(e => e.id !== id);
-  saveEntries();
-  render();
-}
-
-// ── EDIT ENTRY ──
-function openEditModal(id) {
-  const e = entries.find(x => x.id === id);
-  if (!e) return;
-  document.getElementById('eId').value = id;
-  document.getElementById('eDate').value = e.date;
-  document.getElementById('eStart').value = e.startStr;
-  document.getElementById('eEnd').value = e.endStr;
-  document.getElementById('eSkills').value = e.skills || '';
-  openModal('editModal');
-}
-
-function saveEdit() {
-  const id = parseInt(document.getElementById('eId').value);
-  const dateVal = document.getElementById('eDate').value;
-  const startVal = document.getElementById('eStart').value;
-  const endVal = document.getElementById('eEnd').value;
-  const skills = document.getElementById('eSkills').value.trim();
-
-  if (!dateVal || !startVal || !endVal) { alert('Please fill in date, start time, and end time.'); return; }
-
-  const [sy, sm, sd] = dateVal.split('-').map(Number);
-  const [sh, smin] = startVal.split(':').map(Number);
-  const [eh, emin] = endVal.split(':').map(Number);
-
-  const startMs = new Date(sy, sm-1, sd, sh, smin).getTime();
-  let endMs = new Date(sy, sm-1, sd, eh, emin).getTime();
-  if (endMs <= startMs) endMs += 86400000;
-
-  const { dayMins, nightMins } = calcDayNight(startMs, endMs);
-
-  const idx = entries.findIndex(x => x.id === id);
-  if (idx === -1) return;
-  entries[idx] = { ...entries[idx], date: dateVal, startStr: startVal, endStr: endVal, dayMins, nightMins, skills };
-  saveEntries();
-  closeModal('editModal');
-  render();
-}
-
-// ── EXPORT ──
-function openExportModal() {
-  const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
-  const totalNight = entries.reduce((s,e) => s + e.nightMins, 0);
-  const totalAll = totalDay + totalNight;
-  const goalMins = goalHours * 60;
-  const needed = Math.max(0, goalMins - totalAll);
-  const nightNeeded = Math.max(0, NIGHT_GOAL - totalNight);
-
-  document.getElementById('exportSummary').innerHTML = `
-    <div class="exp-row"><span>Student</span><span class="exp-val">${esc(document.getElementById('studentName').value || 'Not entered')}</span></div>
-    <div class="exp-row"><span>Total Drives</span><span class="exp-val">${entries.length}</span></div>
-    <div class="exp-row"><span>Day Minutes</span><span class="exp-val">${totalDay} min (${(totalDay/60).toFixed(1)} hrs)</span></div>
-    <div class="exp-row"><span>Night Minutes</span><span class="exp-val">${totalNight} min (${(totalNight/60).toFixed(1)} hrs)</span></div>
-    <div class="exp-row"><span>Total Minutes</span><span class="exp-val">${totalAll} min (${(totalAll/60).toFixed(1)} hrs)</span></div>
-    ${needed > 0 ? `<div class="exp-row" style="color:#e94560"><span>Still need (total)</span><span>${needed} min (${(needed/60).toFixed(1)} hrs)</span></div>` : '<div class="exp-row" style="color:#27ae60"><span>Total goal</span><span>✅ Complete!</span></div>'}
-    ${nightNeeded > 0 ? `<div class="exp-row" style="color:#9b59b6"><span>Still need (night)</span><span>${nightNeeded} min (${(nightNeeded/60).toFixed(1)} hrs)</span></div>` : '<div class="exp-row" style="color:#27ae60"><span>Night goal (15 hrs)</span><span>✅ Complete!</span></div>'}
-  `;
-  const savedEmail = localStorage.getItem('dlEmail') || '';
-  document.getElementById('exportEmail').value = savedEmail;
-  openModal('exportModal');
-}
-
-function exportLog() {
-  const email = document.getElementById('exportEmail').value.trim();
-  const name = document.getElementById('studentName').value.trim() || 'Student';
-
-  // Build print page HTML
-  const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
-  const totalNight = entries.reduce((s,e) => s + e.nightMins, 0);
-  const totalAll = totalDay + totalNight;
-
-  let rows = entries.map(e => `
-    <tr>
-      <td>${e.date}</td>
-      <td>${e.startStr} – ${e.endStr}</td>
-      <td>${e.dayMins}</td>
-      <td>${e.nightMins}</td>
-      <td>${e.dayMins + e.nightMins}</td>
-      <td>${e.skills || ''}</td>
-    </tr>`).join('');
-
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Supervised Driving Log — ${esc(name)}</title>
-<style>
-  body{font-family:Arial,sans-serif;margin:30px;color:#000;}
-  h1{text-align:center;font-size:22px;margin-bottom:4px;}
-  .sub{text-align:center;font-size:12px;color:#666;margin-bottom:20px;}
-  .info{margin-bottom:16px;font-size:13px;}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  th{background:#1a1a2e;color:#fff;padding:8px 6px;text-align:left;}
-  td{padding:7px 6px;border-bottom:1px solid #ddd;}
-  tr:nth-child(even) td{background:#f9f9f9;}
-  .totals{margin-top:16px;font-size:13px;font-weight:bold;}
-  .totals td{padding:5px 6px;border:none;}
-  .req{margin-top:20px;font-size:11px;background:#fff8cc;border:1px solid #e6c800;padding:10px;border-radius:4px;}
-  .sig{margin-top:30px;border-top:1px solid #000;padding-top:16px;font-size:13px;}
-  .sig-line{display:inline-block;border-bottom:1px solid #000;width:300px;margin:0 10px;}
-  @media print{body{margin:15px;}}
-</style></head><body>
-<h1>Supervised Driving Log</h1>
-<p class="sub">Minnesota Driver &amp; Vehicle Services — Required for Provisional License</p>
-<div class="info">
-  <strong>Student Name:</strong> ${esc(name)}<br>
-  <strong>Goal:</strong> 50 hours (no supplemental parent class)<br>
-  <strong>Date Printed:</strong> ${new Date().toLocaleDateString()}
-</div>
-<table>
-  <thead><tr>
-    <th>Date</th><th>Time</th><th>Day Min</th><th>Night Min</th><th>Total Min</th><th>Skills Practiced</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>
-<table class="totals">
-  <tr>
-    <td>TOTALS:</td>
-    <td>Day: <strong>${totalDay} min</strong></td>
-    <td>Night: <strong>${totalNight} min</strong></td>
-    <td>Total: <strong>${totalAll} min (${(totalAll/60).toFixed(1)} hrs)</strong></td>
-  </tr>
-</table>
-<div class="req">
-  <strong>Requirements:</strong> 40 hours total (with parent class) OR 50 hours total (without parent class), including at least 15 hours of nighttime driving.
-</div>
-<div class="sig">
-  <p>"I hereby affirm that I am the parent/guardian who has supervised my teen driver for the majority of the required driving hours, and that my teen has driven the hours listed above."</p>
-  <br>
-  <p>Signature: <span class="sig-line"></span> Date: ___________</p>
-</div>
-<script>window.onload=function(){window.print();}<\/script>
-</body></html>`;
-
-  const w = window.open('', '_blank');
-  w.document.write(html);
-  w.document.close();
-
-  // Open email client if email provided
-  if (email) {
-    const subject = encodeURIComponent('Driving Log — ' + name);
-    const body = encodeURIComponent(
-      'Hi,\n\nAttached is ' + name + '\'s supervised driving log.\n\n' +
-      'Summary:\n' +
-      '• Total: ' + totalAll + ' minutes (' + (totalAll/60).toFixed(1) + ' hrs)\n' +
-      '• Day: ' + totalDay + ' minutes\n' +
-      '• Night: ' + totalNight + ' minutes\n\n' +
-      '⚠️ REMINDER: Print this log and bring it to the DMV when taking the provisional license test!\n\n' +
-      '(Use File > Print or Ctrl+P / Cmd+P on the page that just opened)'
-    );
-    setTimeout(() => { window.location.href = 'mailto:' + email + '?subject=' + subject + '&body=' + body; }, 1500);
-  }
-
-  closeModal('exportModal');
-}
-
-// ── RENDER ──
-function render() {
-  const totalDay = entries.reduce((s,e) => s + e.dayMins, 0);
-  const totalNight = entries.reduce((s,e) => s + e.nightMins, 0);
-  const totalAll = totalDay + totalNight;
-
-  document.getElementById('totalDay').textContent = totalDay;
-  document.getElementById('totalNight').textContent = totalNight;
-  document.getElementById('totalAll').textContent = totalAll;
-
-  const goalMins = goalHours * 60;
-  const pT = Math.min(100, Math.round(totalAll / goalMins * 100));
-  const pN = Math.min(100, Math.round(totalNight / NIGHT_GOAL * 100));
-  document.getElementById('barTotal').style.width = pT + '%';
-  document.getElementById('barNight').style.width = pN + '%';
-  document.getElementById('pctTotal').textContent = pT + '%';
-  document.getElementById('pctNight').textContent = pN + '%';
-
-  // Remaining time
-  const remTotalMins = Math.max(0, goalMins - totalAll);
-  const remNightMins = Math.max(0, NIGHT_GOAL - totalNight);
-  function fmtRem(mins) {
-    if (mins <= 0) return '✅ Goal reached!';
-    const h = Math.floor(mins / 60), m = mins % 60;
-    if (h === 0) return m + ' min remaining';
-    if (m === 0) return h + ' hr remaining';
-    return h + ' hr ' + m + ' min remaining';
-  }
-  const remTEl = document.getElementById('remTotal');
-  const remNEl = document.getElementById('remNight');
-  remTEl.textContent = fmtRem(remTotalMins);
-  remTEl.className = 'goal-rem' + (remTotalMins <= 0 ? ' done' : '');
-  remNEl.textContent = fmtRem(remNightMins);
-  remNEl.className = 'goal-rem' + (remNightMins <= 0 ? ' done' : '');
-
-  document.getElementById('entryCount').textContent = entries.length + (entries.length === 1 ? ' drive' : ' drives');
-
-  const list = document.getElementById('logList');
-  if (entries.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="icon">🚘</div>No drives logged yet.<br>Tap Start Drive to begin!</div>';
-    return;
-  }
-  list.innerHTML = entries.map(e => {
-    const d = new Date(e.date + 'T12:00:00');
-    const mon = d.toLocaleString('default',{month:'short'}).toUpperCase();
-    const dn = d.getDate();
-    const tot = e.dayMins + e.nightMins;
-    return `<div class="log-entry">
-      <div class="entry-date${e.manual ? ' manual-entry' : ''}">
-        <div class="month">${mon}</div>
-        <div class="day-num">${dn}</div>
-      </div>
-      <div class="entry-info">
-        <div class="entry-time">${e.startStr} → ${e.endStr}${e.manual ? ' · manual' : ''}</div>
-        <div class="entry-mins">
-          ${e.dayMins > 0 ? `<span class="min-badge day">☀️ ${e.dayMins}m</span>` : ''}
-          ${e.nightMins > 0 ? `<span class="min-badge night">🌙 ${e.nightMins}m</span>` : ''}
-          <span class="min-badge tot">${tot}m total</span>
-        </div>
-        ${e.skills ? `<div class="entry-skills">${esc(e.skills)}</div>` : ''}
-      </div>
-      <div class="entry-actions">
-        <button class="edit-btn" onclick="openEditModal(${e.id})" title="Edit">✏️</button>
-        <button class="delete-btn" onclick="deleteEntry(${e.id})" title="Delete">✕</button>
+H��[OH��\��܎��[�\����܎��MMNȏ��[��H�\�X�\�H�ۙ�Y���[����]����]����KKH8�d8�dPRS�T8�d8�dKO��]�YH�XZ[�\����KKHXY\�KO��]��\��H�\ZXY\����]��\��H�\]]H��'���]�[�����]���]��\��H�XY\�\�Y����]��\��H��[��Y��YH��[����]OH��[���]\ȏ��]���]��\��H�\�\�X�\���]��\��H�]�]\��YH�\�\�]�]\�����]����[��\��H�[�[YH�YH�\�\��[YH���Y[�ˋ����7����F�c��'WGF��6�73�'6�v��WB�'F�"��6Ɩ6��'6�v��WB��#�6�v��WC��'WGF�����F�c���F�cࠢ���7F��W'B����F�b�C�'7F��W'B#��F�b6�73�&�W'B�FW�B#�)��������2Ɩ�R��R7F�VB��6����6"�6�wB��fVB��R�֖�WFW2(	Bf�&vWBF�V�B��W"G&�fS���6������F�c��'WGF����6Ɩ6��&F�6֗757F��W'B��#�V�BG&�fS��'WGF�����F�cࠢ���7GVFV�B��R����F�b6�73�&��f��&"#��F�b6�73�&��f��f�V�B#���&V��7GVFV�C���&V��Ɩ�WBG�S�'FW�B"�C�'7GVFV�D��R"�6V���FW#�%��W"��R"���WC�&����T6��vR��#���F�c���F�cࠢ���v��F�vv�R����F�b6�73�&v���F�vv�R��&V�#�v��G�S��F�c��F�b6�73�&v���F�vv�R#��F�b6�73�&v����B7F�fR"�C�&v��C"��6Ɩ6��'6WDv�C�#��7�6�73�&�'2#�C�'3��7��v�F�&V�B6�70���F�c��F�b6�73�&v����B"�C�&v��S"��6Ɩ6��'6WDv�S�#��7�6�73�&�'2#�S�'3��7����&V�B6�70���F�c���F�cࠢ���&�w&W726&G2����F�b6�73�'&�w&W72�w&�B#��F�b6�73�'&�w&W72�6&B#��F�b6�73�&�&V�#�)����F���F�c��F�b6�73�'f�VR"�C�'F�F�F�#���F�c��F�b6�73�'V�B#�֖�WFW3��F�c���F�c��F�b6�73�'&�w&W72�6&B�v�B#��F�b6�73�&�&V�#�	�ɒ�v�C��F�c��F�b6�73�'f�VR"�C�'F�F��v�B#���F�c��F�b6�73�'V�B#�֖�WFW3��F�c���F�c��F�b6�73�'&�w&W72�6&BF�F�#��F�b6�73�&�&V�#�F�F���F�c��F�b6�73�'f�VR"�C�'F�F���#���F�c��F�b6�73�'V�B#�֖�WFW3��F�c���F�c���F�cࠢ���&�w&W72&'2����F�b6�73�&v���6V7F���#��F�b6�73�&v���F�F�R#�&�w&W72F�v����F�c��F�b6�73�&v���&�r#��F�b6�73�&v����&V�"�C�&v���&V�#�F�F��C�'2���F�c��F�b6�73�&&"�w&#��F�b6�73�&&"�f���F�F��&""�C�&&%F�F�"7G��S�'v�GF��R#���F�c���F�c��F�b6�73�&v���7B"�C�'7EF�F�#�S��F�c���F�c��F�b6�73�&v���&V�"�C�'&V�F�F�#�C�"&V����s��F�c��F�b6�73�&v���&�r#��F�b6�73�&v����&V�#��v�B�R�'2���F�c��F�b6�73�&&"�w&#��F�b6�73�&&"�f����v�B�&""�C�&&$�v�B"7G��S�'v�GF��R#���F�c���F�c��F�b6�73�&v���7B"�C�'7D�v�B#�S��F�c���F�c��F�b6�73�&v���&V�"�C�'&V��v�B#�R�"&V����s��F�c���F�cࠢ���7F�fRG&�fR6&B����F�b�C�&7F�fTG&�fT6&B#��F�b6�73�&7F�fRֆVFW"#��F�b7G��S�&F�7���f�W��Ɩv�֗FV�3�6V�FW#�v����#��F�b6�73�&7F�fR�F�B#���F�c��7�6�73�&7F�fR��&V�#�G&�fR��&�w&W73��7����F�c��7�6�73�&7F�fR�6��6R"�C�&7F�fU6��6R#���7����F�c��F�b6�73�'F��W"�F�7��"�C�'F��W$F�7��#�����F�c��F�b6�73�&7F�fR֖�f�#��7��C�&F��v�E7FGW2#�6�7V�F��rF���v�B�����7���7��C�&7W'&V�DF��v�B#���7����F�c��F�b6�73�&vV��7FGW2"�C�&vV�7FGW2#�	�8�vWGF��r��6F��������F�c���F�cࠢ���7F���'WGF��2����F�b6�73�&7F����&�r#��'WGF���C�'7F'D'F�"��6Ɩ6��'7F'DG&�fR��#�)kb7F'BG&�fS��'WGF����'WGF���C�&V�D'F�"��6Ɩ6��&�V�V�D��F�#�)jV�BG&�fS��'WGF�����F�c��'WGF��6�73�&��V��'F�"��6Ɩ6��&�V���V���F�#�FB��W'2��V�ǒ�f�&v�BF�W6R���'WGF��ࠢ�����r����F�b6�73�&��rֆVFW"#��F�b6�73�&��r�F�F�R#�G&�fR��7F�'���F�c��F�b6�73�&V�G'��6�V�B"�C�&V�G'�6�V�B#�G&�fW3��F�c���F�c��F�b�C�&��tƗ7B#���F�cࠢ���W��'B����F�b6�73�&W��'B�6V7F���#��'WGF��6�73�&W��'B�'F�"��6Ɩ6��&�V�W��'D��F�#�	�8BF��R(	BW��'Bf��V�����s��'WGF����F�b6�73�&W��'Bֆ��B#�vV�W&FW2��W"��rF�V���f��&��B&Vf�&R��W"FW7C��F�c���F�c���F�cࠣ���)Y)Y��D�2)Y)Y����F�b6�73�&��F���fW&��"�C�&V�D��F�#��F�b6�73�&��F�w&VV��F�#�ƃ#�V�BG&�fS���#��F�b6�73�'F��R�F�7��#��F�b6�73�'FB��&V�#�V�BF��S��F�c��F�b6�73�'FB�f�"�C�&V�EF��TF�7��#�(	C��F�c��F�b6�73�'FB�7V"#�F�W7B&V��r�b��Rf�&v�BF�7F���F�c���F�c��F�b6�73�&f�&��w&�W#���&V��F�W7BV�BF��R��b�VVFVB����&V��Ɩ�WBG�S�'F��R"�C�&V�EF��T��WB#���F�c��F�b6�73�&f�&��w&�W#���&V��6����2&7F�6VC���&V���FW�F&V�C�&V�E6����2"�6V���FW#�&R�r���v�v��&���r�GW&�2��v�BG&�f��r���#���FW�F&V���F�c��F�b6�73�&��F��7F���2#��'WGF��6�73�&'F��6�6V�"��6Ɩ6��&6��6T��FvV�D��F�r�#�6�6V���'WGF����'WGF��6�73�&'F��6fRw&VV�"��6Ɩ6��'6fTG&�fR��#�6fRG&�fS��'WGF�����F�c���F�c���F�cࠣ�F�b6�73�&��F���fW&��"�C�&��V���F�#��F�b6�73�&��F�#�ƃ#�FB��W'2��V�Ǔ���#��F�b6�73�&f�&��w&�W#���&V��FFS���&V��Ɩ�WBG�S�&FFR"�C�&�FFR#���F�c��F�b6�73�'&�s"#��F�b6�73�&f�&��w&�W#���&V��7F'BF��S���&V��Ɩ�WBG�S�'F��R"�C�&�7F'B#���F�c��F�b6�73�&f�&��w&�W#���&V��V�BF��S���&V��Ɩ�WBG�S�'F��R"�C�&�V�B#���F�c���F�c��F�b6�73�&f�&��w&�W#���&V��6����2&7F�6VC���&V���FW�F&V�C�&�6����2"�6V���FW#�&R�r�&���r���v�v��GW&�2���#���FW�F&V���F�c��F�b6�73�&��F��7F���2#��'WGF��6�73�&'F��6�6V�"��6Ɩ6��&6��6T��Fv��V���F�r�#�6�6V���'WGF����'WGF��6�73�&'F��6fR"��6Ɩ6��'6fT��V�#�6fRV�G'���'WGF�����F�c���F�c���F�cࠣ�F�b6�73�&��F���fW&��"�C�&VF�D��F�#��F�b6�73�&��F�#�ƃ#�)�����VF�BG&�fRV�G'����#�Ɩ�WBG�S�&��FFV�"�C�&T�B#��F�b6�73�&f�&��w&�W#���&V��FFS���&V��Ɩ�WBG�S�&FFR"�C�&TFFR#���F�c��F�b6�73�'&�s"#��F�b6�73�&f�&��w&�W#���&V��7F'BF��S���&V��Ɩ�WBG�S�'F��R"�C�&U7F'B#���F�c��F�b6�73�&f�&��w&�W#���&V��V�BF��S���&V��Ɩ�WBG�S�'F��R"�C�&TV�B#���F�c���F�c��F�b6�73�&f�&��w&�W#���&V��6����2&7F�6VC���&V���FW�F&V�C�&U6����2#���FW�F&V���F�c��F�b6�73�&��F��7F���2#��'WGF��6�73�&'F��6�6V�"��6Ɩ6��&6��6T��FvVF�D��F�r�#�6�6V���'WGF����'WGF��6�73�&'F��6fR"��6Ɩ6��'6fTVF�B��#�6fR6��vW3��'WGF�����F�c���F�c���F�cࠣ�F�b6�73�&��F���fW&��"�C�&W��'D��F�#��F�b6�73�&��F�FV��F�#�ƃ#�	�8BW��'BG&�f��r��s���#��F�b6�73�&W��'B�7V��'�"�C�&W��'E7V��'�#���F�c��F�b6�73�'&V֖�FW"�&��#��7G&��s�)����&Vf�&R��W"FW7B(	B&V�V�&W"��7G&��s�&��BF��2��r�B'&��r�Bv�F���R�F�RD�b&WV�&W2��W"6�v�VB7WW'f�6VBG&�f��r��rF�vWB��W"&�f�6����Ɩ6V�6R���F�c��F�b6�73�&f�&��w&�W#���&V��V����F�6V�BF���W'6V�b����&V��Ɩ�WBG�S�&V���"�C�&W��'DV���"�6V���FW#�'��W$V����6��#���F�c��F�b6�73�&��F��7F���2#��'WGF��6�73�&'F��6�6V�"��6Ɩ6��&6��6T��FvW��'D��F�r�#�6��6S��'WGF����'WGF��6�73�&'F��6fRFV�"��6Ɩ6��&W��'D��r��#�	�:rV���f��&��C��'WGF�����F�c���F�c���F�cࠣ�67&�C���)Y)Yd�$T$4R�UD�)Y)Y ���WBF"��V�ð��WBWF���V�ð��WB7W'&V�EW6W"��V�ð��WBf�&V&6U&VG��f�6S���WB��6���ǒ�f�6S���gV�7F�����Df�&V&6R�6��f�r���G'����b�f�&V&6R�2��V�wF��f�&V&6R�5���FV�WFR����f�&V&6R��F�Ɨ�T�6��f�r���WF��f�&V&6R�WF�����F"�f�&V&6R�f�&W7F�&R����f�&V&6U&VG��G'VS���WF����WF�7FFT6��vVB�W6W"�����b�W6W"���7W'&V�EW6W"�W6W#��6��u67&VV�v���r�����Dg&��6��VB�W6W"�V�B���WFFUW6W$6���W6W"����V�6R��7W'&V�EW6W"��V�ð�6��u67&VV�vWF�r���Тғ��&WGW&�G'VS���6F6��R���6��6��R�W'&�"�R���&WGW&�f�6S��ЧР�gV�7F���W�G&7D6��f�r�FW�B�����66WB&r�4���"f�&V&6T6��f�r������&��6��FW�B�FW�B�G&�҂���6��7B�F6��FW�B��F6���ǵ��5�5ҥ��򓰢�b��F6��&WGW&��V�ð�G'�����&W�6R�2�7G��R�W�2v�F�V�FVB�W�2f�"�4���'6P�6��7B�6��7G"��F6����&W�6R��r%ғ�פգӕ�Ҳ���r%ғ��r�r"C"#�r��&W�6R��r�r�r"r���&WGW&��4���'6R��6��7G"����6F6��R��&WGW&��V�òЧР�gV�7F���7V&֗E6WGW����6��7BFW�B�F�7V�V�B�vWDV�V�V�D'��B�v6��f�u7FRr��f�VS��6��7B6��f�r�W�G&7D6��f�r�FW�B����b�6��f�r��6��f�r���W���6��f�r�&��V7D�B���F�7V�V�B�vWDV�V�V�D'��B�w6WGWW'"r��FW�D6��FV�B�~)����6�V�B��B&VB6��f�r(	B��R7W&R��R7FVBF�RgV�������&��6��s��&WGW&㰢ТF�7V�V�B�vWDV�V�V�D'��B�w6WGWW'"r��FW�D6��FV�B�rs����6�7F�&vR�6WD�FV҂vf$6��f�rr��4���7G&��v�g��6��f�r�����b���Df�&V&6R�6��f�r����6��u67&VV�vWF�r����V�6R��F�7V�V�B�vWDV�V�V�D'��B�w6WGWW'"r��FW�D6��FV�B�~)����f�&V&6R6���V7F���f��VB(	BF�V&�R�6�V6���W"6��f�r�s��ЧР�gV�7F���&W6WE6WGW������6�7F�&vR�&V��fT�FV҂vf$6��f�rr���6��u67&VV�w6WGWr���Р�gV�7F���W6T��6���ǒ������6���ǒ�G'VS����6�7F�&vR�6WD�FV҂vF���6���ǒr�sr���6��u67&VV�v���r�����6��r���v�F��WBWF��WFFUW6W$6����V�����D��6���&V�FW"����Р���)H)HUD�5D���2)H)H �gV�7F���7v�F6�F"�F"���F�7V�V�B�vWDV�V�V�D'��B�wF%6�v��r��6�74Ɨ7B�F�vv�R�v7F�fRr�F"���w6�v��r���F�7V�V�B�vWDV�V�V�D'��B�wF%6�v�Wr��6�74Ɨ7B�F�vv�R�v7F�fRr�F"���w6�v�Wr���F�7V�V�B�vWDV�V�V�D'��B�w�V�6�v��r��6�74Ɨ7B�F�vv�R�v7F�fRr�F"���w6�v��r���F�7V�V�B�vWDV�V�V�D'��B�w�V�6�v�Wr��6�74Ɨ7B�F�vv�R�v7F�fRr�F"���w6�v�Wr���Р�7��2gV�7F���V���6�v�ₒ��6��7BV����F�7V�V�B�vWDV�V�V�D'��B�w6�V���r��f�VR�G&�҂���6��7B72�F�7V�V�B�vWDV�V�V�D'��B�w6�72r��f�VS��F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�rs���b�V�����72��F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�u�V6RV�FW"V����B77v�&B�s�&WGW&�ТG'���v�BWF��6�v��v�F�V����E77v�&B�V����72����6F6��R���F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�g&�V�FǔWF�W'&�"�R�6�FR���ЧР�7��2gV�7F���V���6�v�W����6��7B��R�F�7V�V�B�vWDV�V�V�D'��B�w7T��Rr��f�VR�G&�҂���6��7BV����F�7V�V�B�vWDV�V�V�D'��B�w7TV���r��f�VR�G&�҂���6��7B72�F�7V�V�B�vWDV�V�V�D'��B�w7U72r��f�VS��F�7V�V�B�vWDV�V�V�D'��B�w7TW'"r��FW�D6��FV�B�rs���b���R��F�7V�V�B�vWDV�V�V�D'��B�w7TW'"r��FW�D6��FV�B�u�V6RV�FW"��W"��R�s�&WGW&�Т�b�V�����72��F�7V�V�B�vWDV�V�V�D'��B�w7TW'"r��FW�D6��FV�B�u�V6RV�FW"V����B77v�&B�s�&WGW&�Т�b�72��V�wF��b��F�7V�V�B�vWDV�V�V�D'��B�w7TW'"r��FW�D6��FV�B�u77v�&B�W7B&RB�V7Bb6�&7FW'2�s�&WGW&�ТG'���6��7B7&VB�v�BWF��7&VFUW6W%v�F�V����E77v�&B�V����72���v�B7&VB�W6W"�WFFU&�f��R��F�7����S���Rғ����&R�f���7GVFV�B��P�F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR���S������T6��vR�����6F6��R���F�7V�V�B�vWDV�V�V�D'��B�w7TW'"r��FW�D6��FV�B�g&�V�FǔWF�W'&�"�R�6�FR���ЧР�7��2gV�7F���v��v�U6�v�ₒ��G'���6��7B&�f�FW"��Wrf�&V&6R�WF��v��v�TWF�&�f�FW"����v�BWF��6�v��v�F��W�&�f�FW"����6F6��R���F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�R�6�FR���vWF���W�&��6�VBp��u�W&��6�VB�G'��V��rF�Rg&��vV'6�FR��7FVB�b��6�f��R�p��g&�V�FǔWF�W'&�"�R�6�FR���ЧР�7��2gV�7F���f�&v�E77v�&B����6��7BV����F�7V�V�B�vWDV�V�V�D'��B�w6�V���r��f�VR�G&�҂����b�V���F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�tV�FW"��W"V���&�fRf�'7B�s�&WGW&�ТG'���v�BWF��6V�E77v�&E&W6WDV��V����F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��7G��R�6���"�r3#vScs��F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�~)�R&W6WBV���6V�B(	B6�V6���W"��&���s���6F6��R���F�7V�V�B�vWDV�V�V�D'��B�w6�W'"r��FW�D6��FV�B�g&�V�FǔWF�W'&�"�R�6�FR���ЧР�gV�7F���6�v��WB�����b�6��f�&҂u6�v��WC�r��&WGW&㰢�b�WF��WF��6�v��WB����V�G&�W2��Ӱ�7F�fTG&�fR��V�ð��b�F��W$��FW'f�6�V$��FW'fF��W$��FW'f�F��W$��FW'f���V�òТ7F�vV�vF6�����6��u67&VV�vWF�r���Р�gV�7F���g&�V�FǔWF�W'&�"�6�FR���6��7B����vWF��W6W"���B�f�V�Bs�t��66�V�Bf�V�Bv�F�F�BV����r��vWF��w&��r�77v�&Bs�t��6�'&V7B77v�&B�r��vWF��V�����&VG�֖��W6Rs�t�66�V�Bv�F�F��2V����&VG�W��7G2�r��vWF��vV��77v�&Bs�u77v�&B�W7B&RB�V7Bb6�&7FW'2�r��vWF����fƖB�V���s�u�V6RV�FW"fƖBV���FG&W72�r��vWF��F������&WVW7G2s�uF����GFV�G2(	BG'�v���FW"�r��vWF���WGv�&��&WVW7B�f��VBs�t�WGv�&�W'&�"(	B6�V6���W"6���V7F����r��vWF���W�6��6VB�'��W6W"s�u6�v�֖��Wv26��6VB�r��Ӱ�&WGW&���6�FU���tW'&�#�r�6�FS��Р�gV�7F���WFFUW6W$6���W6W"����b�W6W"���F�7V�V�B�vWDV�V�V�D'��B�wW6W$fF"r��FW�D6��FV�B�s�s��F�7V�V�B�vWDV�V�V�D'��B�wW6W$��Rr��FW�D6��FV�B�t��6���FRs��&WGW&㰢Т6��7B��R�W6W"�F�7����R��W6W"�V�����uW6W"s��F�7V�V�B�vWDV�V�V�D'��B�wW6W$fF"r��FW�D6��FV�B���U���F�WW$66R����F�7V�V�B�vWDV�V�V�D'��B�wW6W$��Rr��FW�D6��FV�B���R�7ƗB�rr�����W6W"�V��ð�Р���)H)H4��TB5��2)H)H �gV�7F���6WE7��57FGW2�7FGW2���6��7BF�B�F�7V�V�B�vWDV�V�V�D'��B�w7��4F�Br���F�B�6�74��R�w7��2�F�Br��7FGW2���w7��6��rr�r7��6��rr�7FGW2���vW'&�"r�rW'&�"r�rr���F�B�F�F�R�7FGW2���w7��6��rr�u7��6��r���r�7FGW2���vW'&�"r�u7��2W'&�"r�u7��6VB)�2s��Р�7��2gV�7F�����Dg&��6��VB�V�B����b�F"�&WGW&㰢G'���6��7BF�2�v�BF"�6���V7F���wW6W'2r��F�2�V�B��vWB�����b�F�2�W��7G2���6��7BFF�F�2�FF����V�G&�W2�FF�V�G&�W2���Ӱ�v�Ć�W'2�FF�v�Ć�W'2��C��6��7B��R�FF�7GVFV�D��R��7W'&V�EW6W"�F�7����R��rs��F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR���S���b�FF�7F�fTG&�fR���7F�fTG&�fR�FF�7F�fTG&�fS��7F�fTG&�fR�7F'EF��R��WrFFR�7F�fTG&�fR�7F'EF��R���6��t7F�fTG&�fR����Т6WDv�v�Ć�W'2�G'VR����V�6R�����WrW6W"(	B&R�f�����Rg&��WF��6��7B��R�7W'&V�EW6W"�F�7����R��rs��F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR���S��Т6WE7��57FGW2�v��r���&V�FW"�����6F6��R���6��6��R�W'&�"�t��BW'&�#�r�R���6WE7��57FGW2�vW'&�"r�����D��6���&V�FW"����ЧР�7��2gV�7F���6fUF�6��VB�����b���6���ǒ��F"��7W'&V�EW6W"���6fT��6���&WGW&㰢Т6WE7��57FGW2�w7��6��rr���G'���v�BF"�6���V7F���wW6W'2r��F�2�7W'&V�EW6W"�V�B��6WB���7GVFV�D��S�F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR��v�Ć�W'2��V�G&�W2��7F�fTG&�fS�7F�fTG&�fR��7F'EF��S��WrFFR�7F�fTG&�fR�7F'EF��R��F��4�7G&��r���7F'E7G#�7F�fTG&�fR�7F'E7G"���V����WFFVDC�f�&V&6R�f�&W7F�&R�f�V�Ef�VR�6W'fW%F��W7F����ғ��6WE7��57FGW2�v��r���6fT��6�����6��VW��6�6����6F6��R���6��6��R�W'&�"�u6fRW'&�#�r�R���6WE7��57FGW2�vW'&�"r���6fT��6���ЧР�gV�7F���6fT��6�����6�7F�&vR�6WD�FV҂vF�V�G&�W2r��4���7G&��v�g��V�G&�W2������6�7F�&vR�6WD�FV҂vF���Rr�F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR�����6�7F�&vR�6WD�FV҂vF�v��r�v�Ć�W'2����b�7F�fTG&�fR���6�7F�&vR�6WD�FV҂vF�7F�fRr��4���7G&��v�g��7F�fTG&�fR����V�6R��6�7F�&vR�&V��fT�FV҂vF�7F�fRr���Р�gV�7F�����D��6���6��7B6fVB���6�7F�&vR�vWD�FV҂vF�V�G&�W2r����b�6fVB�V�G&�W2��4���'6R�6fVB���6��7B6����6�7F�&vR�vWD�FV҂vF���Rr����b�6�F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR�6㰢6��7B6r���6�7F�&vR�vWD�FV҂vF�v��r����b�6r��v�Ć�W'2�'6T��B�6r��6WDv�v�Ć�W'2�G'VR��Т6��7BB���6�7F�&vR�vWD�FV҂vF�7F�fRr����b�B���7F�fTG&�fR��4���'6R�B���7F�fTG&�fR�7F'EF��R��WrFFR�7F�fTG&�fR�7F'EF��R���6��t7F�fTG&�fR����ЧР�gV�7F�������T6��vR����6fUF�6��VB����Р���)H)H45$TT���tT�T�B)H)H �gV�7F���6��u67&VV���R���F�7V�V�B�vWDV�V�V�D'��B�w6WGW67&VV�r��6�74Ɨ7B�&V��fR�v7F�fRr���F�7V�V�B�vWDV�V�V�D'��B�vWF�67&VV�r��6�74Ɨ7B�&V��fR�v7F�fRr���F�7V�V�B�vWDV�V�V�D'��B�v���r��6�74Ɨ7B�&V��fR�v7F�fRr����b���R���w6WGWr�F�7V�V�B�vWDV�V�V�D'��B�w6WGW67&VV�r��6�74Ɨ7B�FB�v7F�fRr���V�6R�b���R���vWF�r�F�7V�V�B�vWDV�V�V�D'��B�vWF�67&VV�r��6�74Ɨ7B�FB�v7F�fRr���V�6R�F�7V�V�B�vWDV�V�V�D'��B�v���r��6�74Ɨ7B�FB�v7F�fRr��ЧР���)H)H5DDR)H)H ��WBV�G&�W2��Ӱ��WB7F�fTG&�fR��V�ð��WBv�Ć�W'2�C���WBF��W$��FW'f���V�ð��WBvV�vF6�W"��V�ð��WBW6W$�B�CB㓃���WBW6W$��r�ӓ2�#s���WB�7D��fUF��R��V�ð��WB7F��W'EF��W"��V�ð��WB7F��W'E6��v��f�6S��6��7B�t�E�t���������)H)Ht��)H)H �gV�7F���6WDv��'2�6��V�B���v�Ć�W'2��'3��F�7V�V�B�vWDV�V�V�D'��B�vv��Cr��6�74Ɨ7B�F�vv�R�v7F�fRr��'2���C���F�7V�V�B�vWDV�V�V�D'��B�vv��Sr��6�74Ɨ7B�F�vv�R�v7F�fRr��'2���S���F�7V�V�B�vWDV�V�V�D'��B�vv���&V�r��FW�D6��FV�B�F�F��G��'7��'2����b�6��V�B�6fUF�6��VB����&V�FW"����Р���)H)H5T�$�4R�5T�4UB)H)H �gV�7F���vWE7V�F��W2�FFR���6��7B&B��F�������6��7BF��e�V"��F��f���"��FFR��WrFFR�FFR�vWDgV�ŖV"��������cC���6��7B"��3c�3cR���F��e�V"����&C��6��7BFV6��#2�CR��F��6��"��&C��6��7B6�4����F��F�W6W$�B�&B���F��F�FV6���b�6�4����6�4����&WGW&��7V�&�6T֖�3c�7V�6WD֖�#Ӱ�6��7B���F��6�2�6�4���&C��6��7BR���r��F��6��"�"��r�S2��F��6�2�"���R��F��6��"���6��7B6��$�����s#�B�W6W$��r�S��6��7BG��fg6WB��FFR�vWEF��W���T�fg6WB����&WGW&��7V�&�6T֖��F��&�V�B�6��$�����B���G��fg6WB��7V�6WD֖��F��&�V�B�6��$�����B���G��fg6WB�Ӱ�Р�gV�7F���6�4F��v�B�7F'D�2�V�D�2���6��7B7F'DFFR��WrFFR�7F'D�2���6��7B�7V�&�6T֖��7V�6WD֖���vWE7V�F��W2�7F'DFFR����WBF�֖�2���v�D֖�2���6��7BGW&F���֖���F��&�V�B��V�D�2�7F'D�2��c���6��7B7F'D֖F�v�B��WrFFR�7F'DFFR�vWDgV�ŖV"���7F'DFFR�vWD���F����7F'DFFR�vWDFFR����vWEF��R����6��7B7F'D֖��dF���F��&�V�B��7F'D�2�7F'D֖F�v�B��c���f�"��WB�����GW&F���֖�������6��7B���7F'D֖��dF����RCC���b����7V�&�6T֖�bb��7V�6WD֖�F�֖�2����V�6R�v�D֖�2����Т&WGW&��F�֖�2��v�D֖�2Ӱ�Р�gV�7F����4�v�D��r����6��7B��r��WrFFR����6��7B�7V�&�6T֖��7V�6WD֖���vWE7V�F��W2���r���6��7B֖F�v�B��WrFFR���r�vWDgV�ŖV"�����r�vWD���F������r�vWDFFR����vWEF��R����6��7B֖���r��F��&�V�B����r�vWEF��R���֖F�v�B��c���&WGW&�֖���r�7V�&�6T֖���֖���r��7V�6WD֖㰧Р���)H)H5D%B�T�BE$�dR)H)H �gV�7F���7F'DG&�fR����7F�fTG&�fR��7F'EF��S��WrFFR���7F'E7G#�f�EF��R��WrFFR���Ӱ�7F��W'E6��v��f�6S��7F'DvV�vF6�����6��t7F�fTG&�fR����6fUF�6��VB����Р�gV�7F���6��t7F�fTG&�fR����F�7V�V�B�vWDV�V�V�D'��B�v7F�fTG&�fT6&Br��6�74Ɨ7B�FB�w6��rr���F�7V�V�B�vWDV�V�V�D'��B�w7F'D'F�r��7G��R�F�7���v���Rs��F�7V�V�B�vWDV�V�V�D'��B�vV�D'F�r��6�74Ɨ7B�FB�w6��rr���F�7V�V�B�vWDV�V�V�D'��B�v7F�fU6��6Rr��FW�D6��FV�B�u7F'FVBr�7F�fTG&�fR�7F'E7G#��7F'EF��W"����Р�gV�7F���7F'EF��W"�����b�F��W$��FW'f6�V$��FW'fF��W$��FW'f��F��W$��FW'f��6WD��FW'fWFFUF��W"����WFFUF��W"����Р�gV�7F���WFFUF��W"�����b�7F�fTG&�fR�&WGW&㰢6��7BV�6VB�FFR���r����WrFFR�7F�fTG&�fR�7F'EF��R��vWEF��R����6��7B���F��f���"�V�6VB�3c���6��7B���F��f���"��V�6VBR3c��c���6��7B2��F��f���"��V�6VBRc�����F�7V�V�B�vWDV�V�V�D'��B�wF��W$F�7��r��FW�D6��FV�B���s�r�7G&��r�Ғ�E7F'B�"�sr��s�r�7G&��r�2��E7F'B�"�sr���F�7V�V�B�vWDV�V�V�D'��B�vF��v�E7FGW2r��FW�D6��FV�B��4�v�D��r���	�ɒ�v�BG&�f��rr�~)����F�G&�f��rs��F�7V�V�B�vWDV�V�V�D'��B�v7W'&V�DF��v�Br��FW�D6��FV�B�f�EF��R��WrFFR�����Р�gV�7F���7F'DvV�vF6������b��f�vF�"�vV���6F�����F�7V�V�B�vWDV�V�V�D'��B�vvV�7FGW2r��FW�D6��FV�B�	�8���6F���V�f��&�R(	BFV�Bv�V�F��Rs��&WGW&㰢Т�7D��fUF��R�FFR���r�����b��f�vF�"�vV���6F������f�vF�"�vV���6F����vWD7W'&V�E�6�F�������W6W$�B��6��&G2��F�GVFS�W6W$��r��6��&G2����v�GVFS�����V����F��V�WC�ғ��ТvV�vF6�W"��f�vF�"�vV���6F����vF6��6�F��•�2����6��7B7VVB��2�6��&G2�7VVC��6��7B��f��r�7VVB����V���G'VR�7VVB��S���b���f��r����7D��fUF��R�FFR���r����7F��W'E6��v��f�6S��F�7V�V�B�vWDV�V�V�D'��B�w7F��W'Br��6�74Ɨ7B�&V��fR�w6��rr���F�7V�V�B�vWDV�V�V�D'��B�vvV�7FGW2r��FW�D6��FV�B�	�8���6F���G&6���r7F�fRs��Т�b�7F��W'E6��v�bbFFR���r����7D��fUF��R�R�c��6��u7F��W'B������������F�7V�V�B�vWDV�V�V�D'��B�vvV�7FGW2r��FW�D6��FV�B�	�8���6F���V�f��&�R(	BFV�Bv�V�F��Rs�����V�&�T��v�67W&7��G'VR�����V�vS�S�F��V�WC�3Т���7F��W'EF��W"�6WD��FW'f�������b�7F�fTG&�fRbb�7D��fUF��Rbb7F��W'E6��v�bbFFR���r����7D��fUF��R�R�c��6��u7F��W'B������3���Р�gV�7F���7F�vV�vF6������b�vV�vF6�W"���V���f�vF�"�vV���6F����6�V%vF6��vV�vF6�W"��vV�vF6�W"��V�òТ�b�7F��W'EF��W"��6�V$��FW'f7F��W'EF��W"��7F��W'EF��W"��V�òЧР�gV�7F���6��u7F��W'B�����b�7F�fTG&�fR�&WGW&㰢7F��W'E6��v��G'VS��F�7V�V�B�vWDV�V�V�D'��B�w7F��W'Br��6�74Ɨ7B�FB�w6��rr���F�7V�V�B�F�F�R�~)����G&�fRV�FVC�(	BG&�f��r��W'2��rs���b�v��F�r���F�f�6F���bb��F�f�6F����W&֗76������vw&�FVBr����Wr��F�f�6F���tG&�fRV�FVC�r��&�G��$����2Ɩ�R��R7F�VB(	BFF�V�B��W"G&�fR"ғ��ЧР�gV�7F���F�6֗757F��W'B����F�7V�V�B�vWDV�V�V�D'��B�w7F��W'Br��6�74Ɨ7B�&V��fR�w6��rr����V�V�D��F���Р�gV�7F����V�V�D��F����b�7F�fTG&�fR�&WGW&㰢6��7B��r��WrFFR����F�7V�V�B�vWDV�V�V�D'��B�vV�EF��TF�7��r��FW�D6��FV�B�f�EF��R���r���F�7V�V�B�vWDV�V�V�D'��B�vV�EF��T��WBr��f�VR���r�F�F��U7G&��r���6Ɩ6R��R���F�7V�V�B�vWDV�V�V�D'��B�vV�E6����2r��f�VR�rs���V���FvV�D��F�r���Р�gV�7F���6fTG&�fR�����b�7F�fTG&�fR�&WGW&㰢6��7B7F'D�2��WrFFR�7F�fTG&�fR�7F'EF��R��vWEF��R����6��7BV�EF��Uf��F�7V�V�B�vWDV�V�V�D'��B�vV�EF��T��WBr��f�VS��6��7B7F'DFFR��WrFFR�7F�fTG&�fR�7F'EF��R����WBV�D�3���b�V�EF��Uf��6��7B�V��V���V�EF��Uf��7ƗB�s�r�����V�&W"���6��7BV�DFFR��WrFFR�7F'DFFR���V�DFFR�6WD��W'2�V��V�������b�V�DFFR�7F'DFFR�V�DFFR�6WDFFR�V�DFFR�vWDFFR������V�D�2�V�DFFR�vWEF��R�����V�6R�V�D�2�FFR���r���Т6��7B�F�֖�2��v�D֖�2��6�4F��v�B�7F'D�2�V�D�2���6��7B6����2�F�7V�V�B�vWDV�V�V�D'��B�vV�E6����2r��f�VR�G&�҂���V�G&�W2�V�6��gB���C�FFR���r���FFS�f�DFFR�7F'DFFR��7F'E7G#�7F�fTG&�fR�7F'E7G"�V�E7G#�V�EF��Uf���f�EF��R��WrFFR����F�֖�2��v�D֖�2�6����2���Vâf�6Rғ��7F�fTG&�fR��V�ð�6�V$��FW'fF��W$��FW'f�F��W$��FW'f���V�ð�7F�vV�vF6�����F�7V�V�B�vWDV�V�V�D'��B�v7F�fTG&�fT6&Br��6�74Ɨ7B�&V��fR�w6��rr���F�7V�V�B�vWDV�V�V�D'��B�w7F'D'F�r��7G��R�F�7���rs��F�7V�V�B�vWDV�V�V�D'��B�vV�D'F�r��6�74Ɨ7B�&V��fR�w6��rr���F�7V�V�B�vWDV�V�V�D'��B�w7F��W'Br��6�74Ɨ7B�&V��fR�w6��rr���F�7V�V�B�F�F�R�tG&�f��r��W'2��rs��6��6T��FvV�D��F�r���6fUF�6��VB����&V�FW"����Р���)H)H��T�T�E%�)H)H �gV�7F����V���V���F���F�7V�V�B�vWDV�V�V�D'��B�v�FFRr��f�VR��WrFFR���F��4�7G&��r���7ƗB�uBr��Ӱ�F�7V�V�B�vWDV�V�V�D'��B�v�7F'Br��f�VR�rs��F�7V�V�B�vWDV�V�V�D'��B�v�V�Br��f�VR�rs��F�7V�V�B�vWDV�V�V�D'��B�v�6����2r��f�VR�rs���V���Fv��V���F�r���Р�gV�7F���6fT��V���6��7BFFUf��F�7V�V�B�vWDV�V�V�D'��B�v�FFRr��f�VS��6��7B7F'Ef��F�7V�V�B�vWDV�V�V�D'��B�v�7F'Br��f�VS��6��7BV�Ef��F�7V�V�B�vWDV�V�V�D'��B�v�V�Br��f�VS��6��7B6����2�F�7V�V�B�vWDV�V�V�D'��B�v�6����2r��f�VR�G&�҂����b�FFUf���7F'Ef���V�Ef��W'B�u�V6Rf�����FFR�7F'BF��R��BV�BF��R�r��&WGW&�Т6��7B�7��6��6E��FFUf��7ƗB�r�r�����V�&W"���6��7B�6��6֖���7F'Ef��7ƗB�s�r�����V�&W"���6��7B�V��V֖���V�Ef��7ƗB�s�r�����V�&W"���6��7B7F'D�2��WrFFR�7��6���6B�6��6֖��vWEF��R�����WBV�D�2��WrFFR�7��6���6B�V��V֖��vWEF��R�����b�V�D�2��7F'D�2�V�D�2���cC��6��7B�F�֖�2��v�D֖�2��6�4F��v�B�7F'D�2�V�D�2���V�G&�W2�V�6��gB���C�FFR���r���FFS�FFUf��7F'E7G#�7F'Ef��V�E7G#�V�Ef��F�֖�2��v�D֖�2�6����2���VâG'VRғ��6��6T��Fv��V���F�r���6fUF�6��VB����&V�FW"����Р���)H)HTD�B)H)H �gV�7F����V�VF�D��F�B���6��7BR�V�G&�W2�f��B������B����B����b�R�&WGW&㰢F�7V�V�B�vWDV�V�V�D'��B�vT�Br��f�VR��C��F�7V�V�B�vWDV�V�V�D'��B�vTFFRr��f�VR�R�FFS��F�7V�V�B�vWDV�V�V�D'��B�vU7F'Br��f�VR�R�7F'E7G#��F�7V�V�B�vWDV�V�V�D'��B�vTV�Br��f�VR�R�V�E7G#��F�7V�V�B�vWDV�V�V�D'��B�vU6����2r��f�VR�R�6����2��rs���V���FvVF�D��F�r���Р�gV�7F���6fTVF�B����6��7B�B�'6T��B�F�7V�V�B�vWDV�V�V�D'��B�vT�Br��f�VR���6��7BFFUf��F�7V�V�B�vWDV�V�V�D'��B�vTFFRr��f�VS��6��7B7F'Ef��F�7V�V�B�vWDV�V�V�D'��B�vU7F'Br��f�VS��6��7BV�Ef��F�7V�V�B�vWDV�V�V�D'��B�vTV�Br��f�VS��6��7B6����2�F�7V�V�B�vWDV�V�V�D'��B�vU6����2r��f�VR�G&�҂����b�FFUf���7F'Ef���V�Ef��W'B�u�V6Rf�����FFR�7F'BF��R��BV�BF��R�r��&WGW&�Т6��7B�7��6��6E��FFUf��7ƗB�r�r�����V�&W"���6��7B�6��6֖���7F'Ef��7ƗB�s�r�����V�&W"���6��7B�V��V֖���V�Ef��7ƗB�s�r�����V�&W"���6��7B7F'D�2��WrFFR�7��6���6B�6��6֖��vWEF��R�����WBV�D�2��WrFFR�7��6���6B�V��V֖��vWEF��R�����b�V�D�2��7F'D�2�V�D�2���cC��6��7B�F�֖�2��v�D֖�2��6�4F��v�B�7F'D�2�V�D�2���6��7B�G��V�G&�W2�f��D��FW�������B����B����b��G������&WGW&㰢V�G&�W5��G�������V�G&�W5��G���FFS�FFUf��7F'E7G#�7F'Ef��V�E7G#�V�Ef��F�֖�2��v�D֖�2�6����2Ӱ�6��6T��FvVF�D��F�r���6fUF�6��VB����&V�FW"����Р���)H)HDT�UDR)H)H �gV�7F���FV�WFTV�G'���B����b�6��f�&҂tFV�WFRF��2G&�fRV�G'��r��&WGW&㰢V�G&�W2�V�G&�W2�f��FW"�R��R�B���B���6fUF�6��VB����&V�FW"����Р���)H)HU��%B)H)H �gV�7F����V�W��'D��F���6��7BF�F�F��V�G&�W2�&VGV6R��2�R���2�R�F�֖�2����6��7BF�F��v�B�V�G&�W2�&VGV6R��2�R���2�R��v�D֖�2����6��7BF�F����F�F�F��F�F��v�C��6��7Bv��֖�2�v�Ć�W'2�c��6��7B�VVFVB��F������v��֖�2�F�F����6��7B�v�D�VVFVB��F�������t�E�t���F�F��v�B���6��7B��R�F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR��t��BV�FW&VBs��F�7V�V�B�vWDV�V�V�D'��B�vW��'E7V��'�r����W$�D��� ��F�b6�73�&W��&�r#��7��7GVFV�C��7���7�6�73�&W��f�#�G�W62���R����7����F�c��F�b6�73�&W��&�r#��7��F�F�G&�fW3��7���7�6�73�&W��f�#�G�V�G&�W2��V�wF����7����F�c��F�b6�73�&W��&�r#��7��F�֖�WFW3��7���7�6�73�&W��f�#�G�F�F�F��֖��G��F�F�F��c��F�f��VB����'2���7����F�c��F�b6�73�&W��&�r#��7���v�B֖�WFW3��7���7�6�73�&W��f�#�G�F�F��v�G�֖��G��F�F��v�B�c��F�f��VB����'2���7����F�c��F�b6�73�&W��&�r#��7��F�F�֖�WFW3��7���7�6�73�&W��f�#�G�F�F����֖��G��F�F����c��F�f��VB����'2���7����F�c�G��VVFVB���F�b6�73�&W��&�r"7G��S�&6���#�6S�CSc#��7��7F����VVB�F�F��7���7��G��VVFVG�֖���7����F�c��s�F�b6�73�&W��&�r"7G��S�&6���#�3#vSc#��7��F�F�v����7���7��)�R6���WFR��7����F�c�wТG��v�D�VVFVB���F�b6�73�&W��&�r"7G��S�&6���#�3�#S�#b#��7��7F����VVB��v�B���7���7��G��v�D�VVFVG�֖���7����F�c��s�F�b6�73�&W��&�r"7G��S�&6���#�3#vSc#��7���v�Bv���R�'2���7���7��)�R6���WFR��7����F�c�wТ��6��7BW6W$V����7W'&V�EW6W"�7W'&V�EW6W"�V����rs��F�7V�V�B�vWDV�V�V�D'��B�vW��'DV���r��f�VR�W6W$V��ð��V���FvW��'D��F�r���Р�gV�7F���W��'D��r����6��7BV����F�7V�V�B�vWDV�V�V�D'��B�vW��'DV���r��f�VR�G&�҂���6��7B��R�F�7V�V�B�vWDV�V�V�D'��B�w7GVFV�D��Rr��f�VR�G&�҂���u7GVFV�Bs��6��7BF�F�F��V�G&�W2�&VGV6R��2�R���2�R�F�֖�2����6��7BF�F��v�B�V�G&�W2�&VGV6R��2�R���2�R��v�D֖�2����6��7BF�F����F�F�F��F�F��v�C��6��7B&�w2�V�G&�W2���R���G#��FC�G�R�FFW���FC��FC�G�R�7F'E7G'�(	2G�R�V�E7G'���FC��FC�G�R�F�֖�7���FC��FC�G�R��v�D֖�7���FC��FC�G�R�F�֖�2�R��v�D֖�7���FC��FC�G�W62�R�6����7��rr����FC���G#������rr���6��7B�F����D�5E�R�F���ƇF���ƆVC���WF6�'6WC�%UDbӂ#��F�F�S�7WW'f�6VBG&�f��r��r(	BG�W62���R����F�F�S��7G��S�&�G��f��B�f֖Ǔ�&���6�2�6W&�c��&v��3��6���#�3�փ�FW�B�Ɩv�6V�FW#�f��B�6��S�#'���&v���&�GF�ӣG����7V'�FW�B�Ɩv�6V�FW#�f��B�6��S�'��6���#�3ccc��&v���&�GF�ӣ#�����f���&v���&�GF�ӣg��f��B�6��S�7���F&�W�v�GF��S�&�&FW"�6���6S�6���6S�f��B�6��S�'���F��&6�w&�V�C�3&S�6���#�6ffc�FF��s���g��FW�B�Ɩv��VgC��FG�FF��s�w�g��&�&FW"�&�GF�ӣ�6�ƖB6FFC��G#��F��6���B�WfV�FG�&6�w&�V�C�6c�c�c����F�F�7��&v���F��g��f��B�6��S�7��f��B�vV�v�C�&��C���F�F�2FG�FF��s�W�g��&�&FW#����S���&W��&v���F��#��f��B�6��S���&6�w&�V�C�6ffc�63�&�&FW#��6�ƖB6Sf3��FF��s���&�&FW"�&F�W3�G����6�w��&v���F��3��&�&FW"�F���6�ƖB3�FF��r�F��g��f��B�6��S�7����6�r�Ɩ�W�F�7�����Ɩ�R�&��6��&�&FW"�&�GF�ӣ�6�ƖB3�v�GF��3���&v������VF�&��G�&�G���&v��W������7G��S����VC��&�G��ƃ�7WW'f�6VBG&�f��r��s�����6�73�'7V"#�֖��W6�FG&�fW"f��fV��6�R6W'f�6W2(	B&WV�&VBf�"&�f�6����Ɩ6V�6S����F�b6�73�&��f�#��7G&��s�7GVFV�C���7G&��s�G�W62���R���'#��7G&��s�v�ã��7G&��s�G�v�Ć�W'7���W'2�G�v�Ć�W'3���C�wv�F�7W�V�V�F�&V�B6�72s�v��7W�V�V�F�&V�B6�72wғ�'#��7G&��s�FFR&��FVC���7G&��s�G��WrFFR���F���6�TFFU7G&��r�����F�c��F&�S��F�VC��G#��F��FFS��F���F��F��S��F���F��F�֖���F���F���v�B֖���F���F��F�F�֖���F���F��6����2&7F�6VC��F����G#���F�VC��F&�G��G�&�w7���F&�G����F&�S��F&�R6�73�'F�F�2#��G#��FC�D�D�3���FC��FC�F���7G&��s�G�F�F�F��֖���7G&��s���FC��FC��v�C��7G&��s�G�F�F��v�G�֖���7G&��s���FC��FC�F�Fâ�7G&��s�G�F�F����֖��G��F�F����c��F�f��VB����'2���7G&��s���FC���G#���F&�S��F�b6�73�'&W#��7G&��s�&WV�&V�V�G3���7G&��s�C��W'2F�F��v�F�&V�B6�72��"S��W'2F�F��v�F��WB&V�B6�72����6�VF��rB�V7BR��W'2�b�v�GF��RG&�f��r���F�c��F�b6�73�'6�r#���$��W&V'�ff�&�F�B��F�R&V�B�wV&F��v���27WW'f�6VBגFVV�G&�fW"f�"F�R���&�G��bF�R&WV�&VBG&�f��r��W'2��BF�BגFVV��2G&�fV�F�R��W'2Ɨ7FVB&�fR�#����'#���6�v�GW&S��7�6�73�'6�r�Ɩ�R#���7��FFS�����������������F�c��67&�C�v��F�r�����C�gV�7F��ₗ�v��F�r�&��B�������67&�C���&�G�����F�����6��7Br�v��F�r��V�rr�u�&��r���r�F�7V�V�B�w&�FR��F���r�F�7V�V�B�6��6R�����b�V����6��7B7V&��V�6�FUU$�6����V�B�tG&�f��r��r(	Br���R���6��7B&�G��V�6�FUU$�6����V�B�t�������W&R�2r���R�u�w27WW'f�6VBG&�f��r��r�����7V��'����(
+"F�Fâr�F�F����r֖��r��F�F����c��F�f��VB���r�'2���(
+"F��r�F�F�F��r֖���(
+"�v�C�r�F�F��v�B�r֖�����)����$TԔ�DU#�&��B�B'&��rF�F�RD�bf�"��W"&�f�6����Ɩ6V�6RFW7B����&��BW6��r7G&µ�6�B���F�RvRF�B�W7B�V�VB�r���6WEF��V�WB������v��F�r���6F����&Vb�v���F�r�V����s�7V&�V7C�r�7V&��rf&�G��r�&�G����S���Т6��6T��FvW��'D��F�r���Р���)H)H$T�DU")H)H �gV�7F���&V�FW"����6��7BF�F�F��V�G&�W2�&VGV6R��2�R���2�R�F�֖�2����6��7BF�F��v�B�V�G&�W2�&VGV6R��2�R���2�R��v�D֖�2����6��7BF�F����F�F�F��F�F��v�C��F�7V�V�B�vWDV�V�V�D'��B�wF�F�F�r��FW�D6��FV�B�F�F�F���F�7V�V�B�vWDV�V�V�D'��B�wF�F��v�Br��FW�D6��FV�B�F�F��v�C��F�7V�V�B�vWDV�V�V�D'��B�wF�F���r��FW�D6��FV�B�F�F��ð�6��7Bv��֖�2�v�Ć�W'2�c��6��7BB��F��֖���F��&�V�B�F�F����v��֖�2�����6��7B���F��֖���F��&�V�B�F�F��v�B��t�E�t�£����F�7V�V�B�vWDV�V�V�D'��B�v&%F�F�r��7G��R�v�GF��B�rRs��F�7V�V�B�vWDV�V�V�D'��B�v&$�v�Br��7G��R�v�GF����rRs��F�7V�V�B�vWDV�V�V�D'��B�w7EF�F�r��FW�D6��FV�B�B�rRs��F�7V�V�B�vWDV�V�V�D'��B�w7D�v�Br��FW�D6��FV�B���rRs��gV�7F���f�E&V֖҆�2����b�֖�2���&WGW&�~)�Rv��&V6�VBs��6��7B���F��f���"�֖�2�c����֖�2Sc��&WGW&�������r�"r�rr������Ҳr֖�r�rr��w&V����rs��Т6��7B&V�B�F�7V�V�B�vWDV�V�V�D'��B�w&V�F�F�r���6��7B&V���F�7V�V�B�vWDV�V�V�D'��B�w&V��v�Br���6��7B&V�D֖�2��F������v��֖�2�F�F����6��7B&V��֖�2��F�������t�E�t���F�F��v�B���&V�B�FW�D6��FV�B�f�E&V҇&V�D֖�2���&V�B�6�74��R�vv���&V�r��&V�D֖�3���rF��Rs�rr���&V���FW�D6��FV�B�f�E&V҇&V��֖�2���&V���6�74��R�vv���&V�r��&V��֖�3���rF��Rs�rr���F�7V�V�B�vWDV�V�V�D'��B�vV�G'�6�V�Br��FW�D6��FV�B�V�G&�W2��V�wF���V�G&�W2��V�wF�����rG&�fRs�rG&�fW2r���6��7BƗ7B�F�7V�V�B�vWDV�V�V�D'��B�v��tƗ7Br����b�V�G&�W2��V�wF������Ɨ7B���W$�D���s�F�b6�73�&V�G��7FFR#��F�b6�73�&�6��#�	�����F�c���G&�fW2��vvVB�WB��'#�F7F'BG&�fRF�&Vv����F�c�s�&WGW&�ТƗ7B���W$�D���V�G&�W2���R����6��7BB��WrFFR�R�FFR�uC#��r���6��7B����B�F���6�U7G&��r�vFVfV�BrǶ���F��w6��'BwҒ�F�WW$66R����6��7BF�B�R�F�֖�2�R��v�D֖�3��&WGW&��F�b6�73�&��r�V�G'�#��F�b6�73�&V�G'��FFRG�R���V��r��V��V�G'�s�rw�#��F�b6�73�&���F�#�G�������F�c��F�b6�73�&F���V�#�G�B�vWDFFR�����F�c���F�c��F�b6�73�&V�G'�֖�f�#��F�b6�73�&V�G'��F��R#�G�R�7F'E7G'�(i"G�R�V�E7G'�G�R���V��r+r��V�s�rw���F�c��F�b6�73�&V�G'��֖�2#�G�R�F�֖�3���7�6�73�&֖��&FvRF�#�)����G�R�F�֖�7����7���rwТG�R��v�D֖�3���7�6�73�&֖��&FvR�v�B#�	�ɒG�R��v�D֖�7����7���rwТ�7�6�73�&֖��&FvRF�B#�G�F�G��F�F���7����F�c�G�R�6����3��F�b6�73�&V�G'��6����2#�G�W62�R�6����2����F�c��rwТ��F�c�  <div class="entry-actions">
+        <button class="edit-btn" onclick="openEditModal(${e.id})">✏️</button>
+        <button class="delete-btn" onclick="deleteEntry(${e.id})">✕</button>
       </div>
     </div>`;
   }).join('');
@@ -921,29 +356,39 @@ function render() {
 // ── MODAL HELPERS ──
 function openModal(id) {
   document.getElementById(id).classList.add('open');
-  document.getElementById(id).addEventListener('click', function handler(ev) {
-    if (ev.target === this) { this.classList.remove('open'); this.removeEventListener('click', handler); }
-  });
+  document.getElementById(id).addEventListener('click', function h(ev) { if(ev.target===this){this.classList.remove('open');this.removeEventListener('click',h);} });
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function fmtTime(d) { return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── UTILS ──
-function fmtTime(d) {
-  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-}
-function fmtDate(d) {
-  return d.toISOString().split('T')[0];
-}
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// ── BOOT ──
+(function boot() {
+  if (window.Notification && Notification.permission === 'default') Notification.requestPermission();
 
-// Request notification permission on page load
-if (window.Notification && Notification.permission === 'default') {
-  Notification.requestPermission();
-}
+  // Check if local-only mode
+  if (localStorage.getItem('dlLocalOnly') === '1') {
+    localOnly = true;
+    showScreen('main');
+    updateUserChip(null);
+    loadLocal();
+    render();
+    return;
+  }
 
-init();
+  // Try saved Firebase config
+  const savedConfig = localStorage.getItem('fbConfig');
+  if (savedConfig) {
+    try {
+      const config = JSON.parse(savedConfig);
+      if (initFirebase(config)) return; // auth listener will handle screens
+    } catch(e) {}
+  }
+
+  // No config — show setup
+  showScreen('setup');
+})();
 </script>
 </body>
 </html>
