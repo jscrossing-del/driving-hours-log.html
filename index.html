@@ -269,60 +269,8 @@ body {
 </head>
 <body>
 
-<!-- ══ SETUP SCREEN ══ -->
-<div id="setupScreen" class="screen active">
-  <div class="screen-logo">🔧</div>
-  <div class="screen-title">One-Time Setup</div>
-  <div class="screen-sub">To keep your data safe across devices,<br>connect a free Firebase account.</div>
-
-  <div class="setup-step">
-    <div class="step-num">1</div>
-    <div class="step-title">Create a free Firebase project</div>
-    <div class="step-desc">Go to <strong style="color:#3a86ff">console.firebase.google.com</strong> → Click <strong>"Add project"</strong> → Name it "Driving Log" → Continue through the steps.</div>
-  </div>
-
-  <div class="setup-step">
-    <div class="step-num">2</div>
-    <div class="step-title">Add a Web App &amp; copy the config</div>
-    <div class="step-desc">In your project, click the <strong>&lt;/&gt;</strong> (Web) icon → Register app → Copy the <code style="color:#7ec8e3">firebaseConfig</code> object that appears.</div>
-  </div>
-
-  <div class="setup-step">
-    <div class="step-num">3</div>
-    <div class="step-title">Enable Authentication</div>
-    <div class="step-desc">Left sidebar → <strong>Build → Authentication → Get started</strong> → Enable <strong>Email/Password</strong>. Optionally enable <strong>Google</strong> too.</div>
-  </div>
-
-  <div class="setup-step">
-    <div class="step-num">4</div>
-    <div class="step-title">Enable Firestore Database</div>
-    <div class="step-desc">Left sidebar → <strong>Build → Firestore Database → Create database</strong> → Choose <strong>Start in test mode</strong> → Pick a region → Done.</div>
-  </div>
-
-  <div class="setup-step">
-    <div class="step-num">5</div>
-    <div class="step-title">Paste your Firebase config below</div>
-    <div class="step-desc">Paste the entire <code style="color:#7ec8e3">firebaseConfig = { ... }</code> block or just the JSON object:</div>
-    <textarea class="setup-paste-area" id="configPaste" placeholder='Paste here, e.g.:
-{
-  "apiKey": "AIza...",
-  "authDomain": "your-app.firebaseapp.com",
-  "projectId": "your-app",
-  "storageBucket": "your-app.appspot.com",
-  "messagingSenderId": "123456789",
-  "appId": "1:123:web:abc"
-}'></textarea>
-    <div class="setup-err" id="setupErr"></div>
-    <button class="big-btn red" onclick="submitSetup()">Connect &amp; Continue →</button>
-  </div>
-
-  <div style="text-align:center;margin-top:16px;">
-    <span style="font-size:.75rem;color:#555;cursor:pointer;" onclick="useLocalOnly()">Skip — use local storage only (data lost if phone lost)</span>
-  </div>
-</div>
-
 <!-- ══ AUTH SCREEN ══ -->
-<div id="authScreen" class="screen">
+<div id="authScreen" class="screen active">
   <div class="screen-logo">🚗</div>
   <div class="screen-title">Driving Hours Log</div>
   <div class="screen-sub">Sign in to keep your data safe<br>on any device</div>
@@ -597,6 +545,16 @@ body {
 <script>
 // ══ FIREBASE + AUTH ══
 
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDfcUTr42_QSRAdTb8xstqsRG_wrOq4vRg",
+  authDomain: "driving-hours-log.firebaseapp.com",
+  projectId: "driving-hours-log",
+  storageBucket: "driving-hours-log.firebasestorage.app",
+  messagingSenderId: "185004003828",
+  appId: "1:185004003828:web:52c03cb914bb7537ae69a1",
+  measurementId: "G-LKHZTJBHR3"
+};
+
 let db = null;
 let auth = null;
 let currentUser = null;
@@ -859,11 +817,9 @@ function onNameChange() {
 
 // ── SCREEN MANAGEMENT ──
 function showScreen(name) {
-  document.getElementById('setupScreen').classList.remove('active');
   document.getElementById('authScreen').classList.remove('active');
   document.getElementById('mainApp').classList.remove('active');
-  if (name === 'setup') document.getElementById('setupScreen').classList.add('active');
-  else if (name === 'auth') document.getElementById('authScreen').classList.add('active');
+  if (name === 'auth') document.getElementById('authScreen').classList.add('active');
   else { document.getElementById('mainApp').classList.add('active'); }
 }
 
@@ -1242,28 +1198,7 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 // ── BOOT ──
 (function boot() {
   if (window.Notification && Notification.permission === 'default') Notification.requestPermission();
-
-  // Check if local-only mode
-  if (localStorage.getItem('dlLocalOnly') === '1') {
-    localOnly = true;
-    showScreen('main');
-    updateUserChip(null);
-    loadLocal();
-    render();
-    return;
-  }
-
-  // Try saved Firebase config
-  const savedConfig = localStorage.getItem('fbConfig');
-  if (savedConfig) {
-    try {
-      const config = JSON.parse(savedConfig);
-      if (initFirebase(config)) return; // auth listener will handle screens
-    } catch(e) {}
-  }
-
-  // No config — show setup
-  showScreen('setup');
+  initFirebase(FIREBASE_CONFIG); // auth listener will handle screens
 })();
 </script>
 <script>
